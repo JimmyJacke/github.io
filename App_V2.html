@@ -1,0 +1,841 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
+  <title>Tradutor Mobile PT ↔ EN</title>
+  
+  <!-- Bibliotecas para exportação -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  
+  <style>
+    :root {
+      /* Tema Claro (Padrão) */
+      --bg-color: #f0f2f5;
+      --card-bg: #ffffff;
+      --text-main: #1a1a1a;
+      --text-sec: #65676b;
+      --border-color: #ddd;
+      --primary: #0084ff;
+      --primary-dark: #0066cc;
+      --success: #31a24c;
+      --danger: #fa3e3e;
+      --warning: #ff9800;
+      --mic-bg: #e4e6eb;
+      --mic-active: #ff3b30;
+      --shadow: 0 2px 8px rgba(0,0,0,0.1);
+      --input-bg: #f0f2f5;
+    }
+
+    [data-theme="dark"] {
+      /* Tema Escuro */
+      --bg-color: #18191a;
+      --card-bg: #242526;
+      --text-main: #e4e6eb;
+      --text-sec: #b0b3b8;
+      --border-color: #3e4042;
+      --primary: #2d88ff;
+      --primary-dark: #1c6dd0;
+      --success: #45bd62;
+      --danger: #f02849;
+      --warning: #ffad1f;
+      --mic-bg: #3a3b3c;
+      --mic-active: #ff453a;
+      --shadow: 0 2px 8px rgba(0,0,0,0.3);
+      --input-bg: #3a3b3c;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+    
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background: var(--bg-color);
+      color: var(--text-main);
+      transition: background 0.3s, color 0.3s;
+      min-height: 100vh;
+      padding-bottom: 40px;
+    }
+
+    .container {
+      max-width: 600px;
+      margin: 0 auto;
+      padding: 15px;
+    }
+
+    /* Header */
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 10px 0 20px;
+    }
+    header h1 {
+      font-size: 1.4rem;
+      font-weight: 700;
+      color: var(--primary);
+    }
+    .theme-toggle {
+      background: var(--card-bg);
+      border: 1px solid var(--border-color);
+      color: var(--text-main);
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.2rem;
+      cursor: pointer;
+      box-shadow: var(--shadow);
+    }
+
+    /* Cards */
+    .card {
+      background: var(--card-bg);
+      border-radius: 16px;
+      padding: 20px;
+      box-shadow: var(--shadow);
+      margin-bottom: 20px;
+      transition: background 0.3s;
+    }
+
+    /* Seletor de Direção */
+    .direction-selector {
+      display: flex;
+      background: var(--input-bg);
+      border-radius: 12px;
+      padding: 4px;
+      margin-bottom: 20px;
+    }
+    .dir-btn {
+      flex: 1;
+      border: none;
+      background: transparent;
+      padding: 10px;
+      border-radius: 10px;
+      font-size: 0.9rem;
+      font-weight: 600;
+      color: var(--text-sec);
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .dir-btn.active {
+      background: var(--card-bg);
+      color: var(--primary);
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    .swap-icon {
+      padding: 0 10px;
+      display: flex;
+      align-items: center;
+      color: var(--text-sec);
+      font-size: 1.2rem;
+      cursor: pointer;
+    }
+
+    /* Área de Input */
+    .input-area {
+      position: relative;
+      margin-bottom: 10px;
+    }
+    textarea {
+      width: 100%;
+      background: var(--input-bg);
+      border: 2px solid transparent;
+      border-radius: 16px;
+      padding: 15px 50px 15px 15px; /* Espaço para o X de limpar se tiver */
+      font-size: 1.1rem;
+      color: var(--text-main);
+      resize: none;
+      height: 120px;
+      font-family: inherit;
+      transition: border-color 0.2s, background 0.3s;
+    }
+    textarea:focus {
+      outline: none;
+      border-color: var(--primary);
+      background: var(--card-bg);
+    }
+    textarea::placeholder {
+      color: var(--text-sec);
+    }
+
+    /* Botão Microfone Circular */
+    .mic-container {
+      display: flex;
+      justify-content: center;
+      margin-top: -30px; /* Puxa para cima, sobrepondo levemente */
+      margin-bottom: 20px;
+      position: relative;
+      z-index: 10;
+    }
+    .mic-btn {
+      width: 70px;
+      height: 70px;
+      border-radius: 50%;
+      border: none;
+      background: var(--mic-bg);
+      color: var(--primary);
+      font-size: 1.8rem;
+      cursor: pointer;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    }
+    .mic-btn:active {
+      transform: scale(0.9);
+    }
+    .mic-btn.listening {
+      background: var(--mic-active);
+      color: white;
+      animation: pulse-red 1.5s infinite;
+    }
+    @keyframes pulse-red {
+      0% { box-shadow: 0 0 0 0 rgba(255, 59, 48, 0.7); }
+      70% { box-shadow: 0 0 0 20px rgba(255, 59, 48, 0); }
+      100% { box-shadow: 0 0 0 0 rgba(255, 59, 48, 0); }
+    }
+
+    /* Botão Traduzir */
+    .translate-btn {
+      width: 100%;
+      padding: 16px;
+      background: var(--primary);
+      color: white;
+      border: none;
+      border-radius: 12px;
+      font-size: 1.1rem;
+      font-weight: 700;
+      cursor: pointer;
+      box-shadow: 0 4px 12px rgba(0, 132, 255, 0.3);
+      transition: background 0.2s;
+    }
+    .translate-btn:active {
+      transform: scale(0.98);
+    }
+    .translate-btn:disabled {
+      background: var(--text-sec);
+      cursor: not-allowed;
+      box-shadow: none;
+    }
+
+    /* Resultado */
+    .result-box {
+      margin-top: 20px;
+      padding: 15px;
+      background: var(--input-bg);
+      border-radius: 12px;
+      border-left: 5px solid var(--success);
+      display: none;
+      animation: fadeIn 0.3s;
+    }
+    .result-box.show { display: block; }
+    .result-text {
+      font-size: 1.2rem;
+      color: var(--text-main);
+      margin-bottom: 10px;
+      line-height: 1.4;
+    }
+    .result-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+    }
+    .icon-btn {
+      background: transparent;
+      border: 1px solid var(--border-color);
+      color: var(--text-sec);
+      padding: 8px 12px;
+      border-radius: 8px;
+      font-size: 1.2rem;
+      cursor: pointer;
+    }
+
+    /* Histórico */
+    .history-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 15px;
+    }
+    .history-list {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .history-item {
+      background: var(--input-bg);
+      padding: 12px;
+      border-radius: 12px;
+      border-left: 4px solid var(--primary);
+    }
+    .hist-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 5px;
+    }
+    .hist-text {
+      font-size: 0.95rem;
+      color: var(--text-main);
+      flex: 1;
+    }
+    .hist-label {
+      font-size: 0.75rem;
+      color: var(--text-sec);
+      text-transform: uppercase;
+      font-weight: 700;
+      margin-right: 5px;
+    }
+
+    /* Configurações */
+    .settings-toggle {
+      text-align: center;
+      color: var(--text-sec);
+      font-size: 0.9rem;
+      padding: 10px;
+      cursor: pointer;
+      text-decoration: underline;
+    }
+    .settings-panel {
+      display: none;
+      background: var(--input-bg);
+      border-radius: 12px;
+      padding: 15px;
+      margin-top: 10px;
+    }
+    .settings-panel.open { display: block; }
+    .setting-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 10px 0;
+      border-bottom: 1px solid var(--border-color);
+    }
+    .setting-row:last-child { border-bottom: none; }
+    
+    /* Toggle Switch */
+    .switch {
+      position: relative;
+      display: inline-block;
+      width: 50px;
+      height: 28px;
+    }
+    .switch input { opacity: 0; width: 0; height: 0; }
+    .slider {
+      position: absolute;
+      cursor: pointer;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background-color: var(--border-color);
+      transition: .4s;
+      border-radius: 34px;
+    }
+    .slider:before {
+      position: absolute;
+      content: "";
+      height: 20px;
+      width: 20px;
+      left: 4px;
+      bottom: 4px;
+      background-color: white;
+      transition: .4s;
+      border-radius: 50%;
+    }
+    input:checked + .slider { background-color: var(--success); }
+    input:checked + .slider:before { transform: translateX(22px); }
+
+    /* Toast */
+    .toast {
+      position: fixed;
+      bottom: 30px;
+      left: 50%;
+      transform: translateX(-50%) translateY(100px);
+      background: var(--text-main);
+      color: var(--bg-color);
+      padding: 12px 24px;
+      border-radius: 50px;
+      font-size: 0.9rem;
+      font-weight: 600;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+      transition: transform 0.3s cubic-bezier(0.68, -0.55, 0.27, 1.55);
+      z-index: 1000;
+      white-space: nowrap;
+    }
+    .toast.show { transform: translateX(-50%) translateY(0); }
+
+    /* Animações */
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* Utilitários */
+    .hidden { display: none; }
+    .text-center { text-align: center; }
+    .mt-2 { margin-top: 10px; }
+    
+    /* Export Buttons */
+    .export-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 10px;
+      margin-top: 10px;
+    }
+    .btn-export {
+      padding: 10px;
+      border: none;
+      border-radius: 8px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: white;
+      cursor: pointer;
+    }
+    .btn-txt { background: #95a5a6; }
+    .btn-pdf { background: #e74c3c; }
+    .btn-xlsx { background: #27ae60; }
+
+  </style>
+</head>
+<body>
+
+  <div class="container">
+    <!-- Header -->
+    <header>
+      <h1>🌐 Tradutor</h1>
+      <button class="theme-toggle" onclick="toggleTheme()" id="themeBtn">🌙</button>
+    </header>
+
+    <!-- Card Principal -->
+    <div class="card">
+      <!-- Seletor de Direção -->
+      <div class="direction-selector">
+        <button class="dir-btn active" id="btnPtToEn" onclick="setDirection('pt-to-en')">
+          🇧🇷 PT → EN 🇺🇸
+        </button>
+        <div class="swap-icon" onclick="swapDirection()">⇄</div>
+        <button class="dir-btn" id="btnEnToPt" onclick="setDirection('en-to-pt')">
+          🇺🇸 EN → PT 🇧🇷
+        </button>
+      </div>
+
+      <!-- Input de Texto -->
+      <div class="input-area">
+        <textarea id="inputText" placeholder="Digite ou toque no microfone..."></textarea>
+      </div>
+
+      <!-- Botão Microfone Circular -->
+      <div class="mic-container">
+        <button class="mic-btn" id="micBtn" onclick="alternarVoz()" title="Falar">
+          🎤
+        </button>
+      </div>
+
+      <!-- Botão Traduzir -->
+      <button class="translate-btn" id="translateBtn" onclick="traduzir()">
+        Traduzir
+      </button>
+
+      <!-- Resultado -->
+      <div class="result-box" id="resultBox">
+        <div class="result-text" id="resultText"></div>
+        <div class="result-actions">
+          <button class="icon-btn" onclick="copiarTexto()" title="Copiar">📋</button>
+          <button class="icon-btn" onclick="falarResultado()" title="Ouvir">🔊</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Configurações -->
+    <div class="settings-toggle" onclick="toggleSettings()">⚙️ Configurações</div>
+    <div class="settings-panel" id="settingsPanel">
+      <div class="setting-row">
+        <span>🎤 Usar Microfone</span>
+        <label class="switch">
+          <input type="checkbox" id="toggleMic" checked onchange="saveConfig()">
+          <span class="slider"></span>
+        </label>
+      </div>
+      <div class="setting-row">
+        <span>⚡ Tradução Automática</span>
+        <label class="switch">
+          <input type="checkbox" id="toggleAuto" checked onchange="saveConfig()">
+          <span class="slider"></span>
+        </label>
+      </div>
+      <div class="setting-row">
+        <span>🔊 Ler Tradução</span>
+        <label class="switch">
+          <input type="checkbox" id="toggleSpeak" onchange="saveConfig()">
+          <span class="slider"></span>
+        </label>
+      </div>
+    </div>
+
+    <!-- Histórico -->
+    <div class="card mt-2">
+      <div class="history-header">
+        <h3>📜 Histórico</h3>
+        <button class="icon-btn" style="font-size:0.8rem; padding:4px 8px;" onclick="limparHistorico()">Limpar</button>
+      </div>
+      
+      <div class="history-list" id="historyList">
+        <div class="text-center" style="color:var(--text-sec); padding:20px;">
+          Nenhuma tradução recente
+        </div>
+      </div>
+
+      <div class="export-grid">
+        <button class="btn-export btn-txt" onclick="exportarTXT()">📄 TXT</button>
+        <button class="btn-export btn-pdf" onclick="exportarPDF()">📕 PDF</button>
+        <button class="btn-export btn-xlsx" onclick="exportarExcel()">📗 Excel</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast">Mensagem</div>
+
+  <script>
+    // ================= CONFIGURAÇÃO & ESTADO =================
+    const HISTORY_KEY = 'tradutor_hist_v2';
+    const CONFIG_KEY = 'tradutor_conf_v2';
+    const THEME_KEY = 'tradutor_theme';
+    const API_URL = 'https://api.mymemory.translated.net/get';
+    
+    let historico = [];
+    let recognition = null;
+    let estaOuvindo = false;
+    let direcao = 'pt-to-en';
+    let config = { mic: true, auto: true, speak: false };
+    let ultimoResultado = "";
+
+    // ================= INICIALIZAÇÃO =================
+    window.addEventListener('DOMContentLoaded', () => {
+      carregarTema();
+      carregarConfig();
+      carregarHistorico();
+      initVoice();
+      atualizarUI();
+      
+      // Auto-resize textarea
+      const tx = document.getElementById('inputText');
+      tx.addEventListener('input', function() {
+        this.style.height = 'auto';
+        this.style.height = (this.scrollHeight) + 'px';
+        if(this.value === '') this.style.height = '120px';
+      });
+    });
+
+    // ================= TEMA (CLARO/ESCURO) =================
+    function toggleTheme() {
+      const body = document.body;
+      const btn = document.getElementById('themeBtn');
+      const isDark = body.getAttribute('data-theme') === 'dark';
+      
+      if (isDark) {
+        body.removeAttribute('data-theme');
+        btn.textContent = '🌙';
+        localStorage.setItem(THEME_KEY, 'light');
+      } else {
+        body.setAttribute('data-theme', 'dark');
+        btn.textContent = '☀️';
+        localStorage.setItem(THEME_KEY, 'dark');
+      }
+    }
+
+    function carregarTema() {
+      const saved = localStorage.getItem(THEME_KEY);
+      if (saved === 'dark') {
+        document.body.setAttribute('data-theme', 'dark');
+        document.getElementById('themeBtn').textContent = '☀️';
+      }
+    }
+
+    // ================= CONFIGURAÇÕES =================
+    function toggleSettings() {
+      document.getElementById('settingsPanel').classList.toggle('open');
+    }
+
+    function saveConfig() {
+      config.mic = document.getElementById('toggleMic').checked;
+      config.auto = document.getElementById('toggleAuto').checked;
+      config.speak = document.getElementById('toggleSpeak').checked;
+      localStorage.setItem(CONFIG_KEY, JSON.stringify(config));
+    }
+
+    function carregarConfig() {
+      const saved = localStorage.getItem(CONFIG_KEY);
+      if (saved) {
+        config = JSON.parse(saved);
+        document.getElementById('toggleMic').checked = config.mic;
+        document.getElementById('toggleAuto').checked = config.auto;
+        document.getElementById('toggleSpeak').checked = config.speak;
+      }
+    }
+
+    // ================= DIREÇÃO =================
+    function setDirection(dir) {
+      direcao = dir;
+      localStorage.setItem('tradutor_dir', dir);
+      atualizarUI();
+    }
+
+    function swapDirection() {
+      direcao = direcao === 'pt-to-en' ? 'en-to-pt' : 'pt-to-en';
+      setDirection(direcao);
+    }
+
+    function atualizarUI() {
+      const btnPt = document.getElementById('btnPtToEn');
+      const btnEn = document.getElementById('btnEnToPt');
+      const input = document.getElementById('inputText');
+      
+      if (direcao === 'pt-to-en') {
+        btnPt.classList.add('active');
+        btnEn.classList.remove('active');
+        input.placeholder = "Digite ou fale em português...";
+        if(recognition) recognition.lang = 'pt-BR';
+      } else {
+        btnPt.classList.remove('active');
+        btnEn.classList.add('active');
+        input.placeholder = "Type or speak in English...";
+        if(recognition) recognition.lang = 'en-US';
+      }
+      input.focus();
+    }
+
+    // ================= VOZ (MICROFONE) =================
+    function initVoice() {
+      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+      if (!SpeechRecognition) {
+        document.getElementById('micBtn').style.display = 'none';
+        return;
+      }
+
+      recognition = new SpeechRecognition();
+      recognition.continuous = false;
+      recognition.interimResults = true;
+      atualizarUI(); // Define idioma inicial
+
+      recognition.onstart = () => {
+        estaOuvindo = true;
+        document.getElementById('micBtn').classList.add('listening');
+        document.getElementById('micBtn').innerHTML = '🛑';
+      };
+
+      recognition.onend = () => {
+        estaOuvindo = false;
+        document.getElementById('micBtn').classList.remove('listening');
+        document.getElementById('micBtn').innerHTML = '🎤';
+      };
+
+      recognition.onresult = (e) => {
+        let final = '';
+        for (let i = e.resultIndex; i < e.results.length; i++) {
+          if (e.results[i].isFinal) final += e.results[i][0].transcript;
+        }
+        if (final) {
+          document.getElementById('inputText').value = final.trim();
+          if (config.auto) setTimeout(traduzir, 600);
+        }
+      };
+
+      recognition.onerror = (e) => {
+        estaOuvindo = false;
+        document.getElementById('micBtn').classList.remove('listening');
+        document.getElementById('micBtn').innerHTML = '🎤';
+        showToast('❌ Erro no microfone: ' + e.error);
+      };
+    }
+
+    function alternarVoz() {
+      if (!config.mic) {
+        showToast('⚠️ Microfone desativado nas configurações');
+        return;
+      }
+      if (!recognition) return showToast('❌ Navegador não suporta voz');
+
+      if (estaOuvindo) recognition.stop();
+      else {
+        document.getElementById('inputText').value = '';
+        recognition.start();
+      }
+    }
+
+    // ================= TRADUÇÃO =================
+    async function traduzir() {
+      const input = document.getElementById('inputText');
+      const texto = input.value.trim();
+      const btn = document.getElementById('translateBtn');
+      const resultBox = document.getElementById('resultBox');
+      const resultText = document.getElementById('resultText');
+
+      if (!texto) return showToast('⚠️ Digite algo primeiro');
+
+      // Check duplicidade simples
+      if (historico.some(h => (direcao === 'pt-to-en' ? h.pt : h.en) === texto)) {
+        // Apenas avisa, não bloqueia totalmente para permitir reuso
+        // showToast('⚠️ Já traduzido recentemente');
+      }
+
+      btn.disabled = true;
+      btn.textContent = 'Traduzindo...';
+      resultBox.classList.remove('show');
+
+      try {
+        const langPair = direcao === 'pt-to-en' ? 'pt|en' : 'en|pt';
+        const res = await fetch(`${API_URL}?q=${encodeURIComponent(texto)}&langpair=${langPair}`);
+        const data = await res.json();
+        
+        if (data.responseStatus !== 200) throw new Error('Falha na API');
+        
+        const traduzido = data.responseData.translatedText;
+        ultimoResultado = traduzido;
+
+        // Salvar no histórico
+        const item = {
+          dir: direcao,
+          orig: texto,
+          dest: traduzido,
+          date: new Date().toLocaleTimeString()
+        };
+        historico.unshift(item);
+        if (historico.length > 50) historico.pop();
+        localStorage.setItem(HISTORY_KEY, JSON.stringify(historico));
+        renderHistorico();
+
+        // Exibir
+        resultText.textContent = traduzido;
+        resultBox.classList.add('show');
+        input.value = '';
+        input.style.height = '120px'; // Reset height
+        
+        showToast('✅ Traduzido!');
+
+        if (config.speak) falarResultado();
+
+      } catch (err) {
+        showToast('❌ Erro: ' + err.message);
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'Traduzir';
+      }
+    }
+
+    function falarResultado() {
+      if (!ultimoResultado) return;
+      const utterance = new SpeechSynthesisUtterance(ultimoResultado);
+      utterance.lang = direcao === 'pt-to-en' ? 'en-US' : 'pt-BR';
+      window.speechSynthesis.speak(utterance);
+    }
+
+    function copiarTexto() {
+      if (!ultimoResultado) return;
+      navigator.clipboard.writeText(ultimoResultado);
+      showToast('📋 Copiado!');
+    }
+
+    // ================= HISTÓRICO & EXPORTAÇÃO =================
+    function carregarHistorico() {
+      const saved = localStorage.getItem(HISTORY_KEY);
+      if (saved) historico = JSON.parse(saved);
+      renderHistorico();
+    }
+
+    function renderHistorico() {
+      const list = document.getElementById('historyList');
+      if (historico.length === 0) {
+        list.innerHTML = '<div class="text-center" style="color:var(--text-sec); padding:20px;">Nenhuma tradução recente</div>';
+        return;
+      }
+      
+      list.innerHTML = historico.map(h => `
+        <div class="history-item">
+          <div class="hist-row">
+            <span class="hist-label">${h.dir === 'pt-to-en' ? '🇧🇷 PT' : '🇺🇸 EN'}:</span>
+            <span class="hist-text">${h.orig}</span>
+          </div>
+          <div class="hist-row">
+            <span class="hist-label">${h.dir === 'pt-to-en' ? '🇺🇸 EN' : '🇧🇷 PT'}:</span>
+            <span class="hist-text" style="color:var(--primary); font-weight:600;">${h.dest}</span>
+            <button class="icon-btn" style="font-size:1rem; padding:2px 6px;" onclick="repetirFala('${h.dest.replace(/'/g, "\\'")}', '${h.dir}')">🔊</button>
+          </div>
+          <div style="font-size:0.7rem; color:var(--text-sec); text-align:right;">${h.date}</div>
+        </div>
+      `).join('');
+    }
+
+    function repetirFala(texto, dir) {
+      const u = new SpeechSynthesisUtterance(texto);
+      u.lang = dir === 'pt-to-en' ? 'en-US' : 'pt-BR';
+      window.speechSynthesis.speak(u);
+    }
+
+    function limparHistorico() {
+      if(confirm('Apagar todo o histórico?')) {
+        historico = [];
+        localStorage.removeItem(HISTORY_KEY);
+        renderHistorico();
+        showToast('🗑️ Limpo');
+      }
+    }
+
+    // Funções de exportação simplificadas para mobile
+    function exportarTXT() {
+      if(!historico.length) return showToast('Vazio');
+      const content = historico.map(h => `${h.orig} -> ${h.dest}`).join('\n');
+      downloadFile(content, 'tradutor.txt', 'text/plain');
+    }
+
+    function exportarPDF() {
+      if(!historico.length) return showToast('Vazio');
+      showToast('🔄 Gerando PDF...');
+      // Implementação básica PDF (requer biblioteca carregada)
+      try {
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF();
+        doc.text("Histórico de Traduções", 10, 10);
+        let y = 20;
+        historico.forEach((h, i) => {
+          if(y > 280) { doc.addPage(); y = 20; }
+          doc.text(`${i+1}. ${h.orig}`, 10, y);
+          doc.text(`   ${h.dest}`, 10, y+5);
+          y += 15;
+        });
+        doc.save("tradutor.pdf");
+        showToast('📕 PDF Baixado');
+      } catch(e) { showToast('❌ Erro PDF'); }
+    }
+
+    function exportarExcel() {
+      if(!historico.length) return showToast('Vazio');
+      try {
+        const ws = XLSX.utils.json_to_sheet(historico);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "Traduções");
+        XLSX.writeFile(wb, "tradutor.xlsx");
+        showToast('📗 Excel Baixado');
+      } catch(e) { showToast('❌ Erro Excel'); }
+    }
+
+    function downloadFile(content, name, type) {
+      const blob = new Blob([content], {type});
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = name;
+      a.click();
+      URL.revokeObjectURL(url);
+    }
+
+    function showToast(msg) {
+      const t = document.getElementById('toast');
+      t.textContent = msg;
+      t.classList.add('show');
+      setTimeout(() => t.classList.remove('show'), 3000);
+    }
+  </script>
+</body>
+</html>
