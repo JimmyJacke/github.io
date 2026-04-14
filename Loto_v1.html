@@ -1,0 +1,1131 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lotofácil Analytics | Números Frios</title>
+    <!-- Fonte Google -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <!-- Ícones -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <!-- SheetJS para Excel -->
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
+    
+    <style>
+        :root {
+            /* Paleta Light (Padrão) */
+            --bg-body: #f3f4f6;
+            --bg-card: #ffffff;
+            --text-main: #1f2937;
+            --text-muted: #6b7280;
+            --primary: #4f46e5;
+            --primary-hover: #4338ca;
+            --secondary: #10b981;
+            --accent: #f59e0b;
+            --danger: #ef4444;
+            --border: #e5e7eb;
+            --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            --ball-gradient: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
+            --ball-cold: linear-gradient(135deg, #9ca3af 0%, #6b7280 100%);
+            --ball-hot: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            --ball-fixed: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
+            --ball-repeat: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+            --ball-rare: linear-gradient(135deg, #06b6d4 0%, #0891b2 100%);
+            --ball-extra: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
+        }
+
+        [data-theme="dark"] {
+            --bg-body: #0f172a;
+            --bg-card: #1e293b;
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+            --primary: #6366f1;
+            --primary-hover: #818cf8;
+            --secondary: #34d399;
+            --accent: #fbbf24;
+            --danger: #f87171;
+            --border: #334155;
+            --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.5);
+            --ball-gradient: linear-gradient(135deg, #818cf8 0%, #6366f1 100%);
+            --ball-cold: linear-gradient(135deg, #6b7280 0%, #4b5563 100%);
+            --ball-hot: linear-gradient(135deg, #34d399 0%, #10b981 100%);
+            --ball-fixed: linear-gradient(135deg, #f87171 0%, #dc2626 100%);
+            --ball-repeat: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%);
+            --ball-rare: linear-gradient(135deg, #22d3ee 0%, #06b6d4 100%);
+            --ball-extra: linear-gradient(135deg, #a78bfa 0%, #8b5cf6 100%);
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Inter', sans-serif; }
+        
+        body {
+            background-color: var(--bg-body);
+            color: var(--text-main);
+            transition: background-color 0.4s ease, color 0.4s ease;
+            min-height: 100vh;
+            padding-bottom: 50px;
+        }
+
+        /* --- Header & Nav --- */
+        header {
+            background: var(--bg-card);
+            border-bottom: 1px solid var(--border);
+            padding: 1rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            box-shadow: var(--shadow);
+        }
+
+        .logo {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--primary);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .theme-btn {
+            background: transparent;
+            border: 2px solid var(--border);
+            color: var(--text-main);
+            padding: 0.5rem 1rem;
+            border-radius: 20px;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-weight: 600;
+        }
+        .theme-btn:hover { border-color: var(--primary); color: var(--primary); }
+
+        /* --- Layout Grid --- */
+        .container {
+            max-width: 1200px;
+            margin: 2rem auto;
+            padding: 0 1rem;
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 2rem;
+        }
+
+        @media(min-width: 900px) {
+            .container {
+                grid-template-columns: 350px 1fr;
+            }
+        }
+
+        /* --- Cards --- */
+        .card {
+            background: var(--bg-card);
+            border-radius: 16px;
+            padding: 1.5rem;
+            box-shadow: var(--shadow);
+            border: 1px solid var(--border);
+            transition: transform 0.3s ease;
+        }
+        
+        .card-header {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 1.5rem;
+            padding-bottom: 1rem;
+            border-bottom: 1px solid var(--border);
+        }
+        
+        .card-header h2 { font-size: 1.25rem; font-weight: 600; }
+        .card-header i { color: var(--primary); font-size: 1.2rem; }
+
+        /* --- Forms & Inputs --- */
+        .form-group { margin-bottom: 1.2rem; }
+        
+        label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-size: 0.9rem;
+            font-weight: 600;
+            color: var(--text-muted);
+        }
+
+        input[type="number"], input[type="file"] {
+            width: 100%;
+            padding: 0.75rem;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            background: var(--bg-body);
+            color: var(--text-main);
+            font-size: 1rem;
+            transition: border-color 0.3s;
+        }
+
+        input:focus { outline: none; border-color: var(--primary); ring: 2px solid var(--primary); }
+        
+        input:invalid {
+            border-color: var(--danger);
+        }
+        
+        input:invalid:focus {
+            box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.2);
+        }
+
+        /* Custom File Upload */
+        .file-drop-area {
+            border: 2px dashed var(--border);
+            border-radius: 12px;
+            padding: 2rem;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s;
+            position: relative;
+        }
+        .file-drop-area:hover { border-color: var(--primary); background: rgba(79, 70, 229, 0.05); }
+        .file-drop-area i { font-size: 2rem; color: var(--text-muted); margin-bottom: 10px; }
+        .file-msg { font-size: 0.9rem; color: var(--text-muted); }
+        input[type="file"] {
+            position: absolute; left: 0; top: 0; height: 100%; width: 100%; opacity: 0; cursor: pointer;
+        }
+
+        /* --- Buttons --- */
+        .btn {
+            width: 100%;
+            padding: 0.85rem;
+            border: none;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 8px;
+            transition: transform 0.2s, filter 0.2s;
+        }
+        .btn:active { transform: scale(0.98); }
+        .btn-primary { background: var(--primary); color: white; }
+        .btn-primary:hover { background: var(--primary-hover); }
+        .btn-success { background: var(--secondary); color: white; }
+        .btn-outline { background: transparent; border: 1px solid var(--border); color: var(--text-main); }
+        .btn-outline:hover { background: var(--bg-body); }
+
+        /* --- Results Area --- */
+        .results-section { display: none; animation: fadeIn 0.5s ease; }
+        .results-section.active { display: block; }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+            gap: 10px;
+            margin-bottom: 2rem;
+        }
+
+        .stat-item {
+            background: var(--bg-body);
+            padding: 10px;
+            border-radius: 10px;
+            text-align: center;
+            border: 1px solid var(--border);
+        }
+        .stat-num { font-size: 1.2rem; font-weight: 700; color: var(--primary); }
+        .stat-freq { font-size: 0.75rem; color: var(--text-muted); }
+
+        /* --- Lottery Balls --- */
+        .balls-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            justify-content: center;
+            margin: 1rem 0;
+        }
+
+        .ball {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            color: white;
+            font-size: 0.9rem;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+            animation: popIn 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+            opacity: 0;
+            transform: scale(0.5);
+            position: relative;
+        }
+
+        .ball.regular { background: var(--ball-gradient); }
+        .ball.cold { background: var(--ball-cold); }
+        .ball.hot { background: var(--ball-hot); }
+        .ball.fixed { background: var(--ball-fixed); }
+        .ball.repeat { background: var(--ball-repeat); }
+        .ball.rare { background: var(--ball-rare); }
+        .ball.extra { background: var(--ball-extra); }
+
+        .ball .tooltip {
+            position: absolute;
+            bottom: -25px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: var(--text-main);
+            color: var(--bg-card);
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 0.65rem;
+            white-space: nowrap;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.2s;
+        }
+
+        .ball:hover .tooltip {
+            opacity: 1;
+        }
+
+        /* --- Legend --- */
+        .legend {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            margin: 1rem 0;
+            padding: 1rem;
+            background: var(--bg-body);
+            border-radius: 8px;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 0.85rem;
+            color: var(--text-muted);
+        }
+
+        .legend-ball {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.6rem;
+            color: white;
+        }
+
+        /* --- Sequence Cards --- */
+        .sequence-card {
+            background: var(--bg-body);
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin-bottom: 1rem;
+            border-left: 5px solid var(--primary);
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            animation: slideUp 0.5s ease forwards;
+            opacity: 0;
+        }
+
+        .sequence-card.extra-game {
+            border-left-color: var(--ball-extra);
+            background: linear-gradient(135deg, rgba(139, 92, 246, 0.1) 0%, var(--bg-body) 100%);
+        }
+
+        .seq-header { display: flex; justify-content: space-between; align-items: center; }
+        .seq-title { font-weight: 700; color: var(--text-main); }
+        .seq-badge {
+            background: var(--ball-extra);
+            color: white;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 0.7rem;
+            font-weight: 600;
+        }
+        .copy-btn {
+            background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 0.9rem;
+        }
+        .copy-btn:hover { color: var(--primary); }
+
+        /* --- Frequency Analysis --- */
+        .freq-analysis {
+            background: var(--bg-body);
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin: 1.5rem 0;
+        }
+
+        .freq-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(60px, 1fr));
+            gap: 8px;
+            margin-top: 1rem;
+        }
+
+        .freq-item {
+            background: var(--bg-card);
+            padding: 8px;
+            border-radius: 8px;
+            text-align: center;
+            border: 1px solid var(--border);
+        }
+
+        .freq-num { font-size: 1rem; font-weight: 700; color: var(--primary); }
+        .freq-count { font-size: 0.7rem; color: var(--text-muted); }
+        .freq-item.rare { border-color: var(--ball-rare); background: rgba(6, 182, 212, 0.1); }
+        .freq-item.common { border-color: var(--ball-repeat); background: rgba(245, 158, 11, 0.1); }
+
+        /* --- Toast Notification --- */
+        .toast {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: var(--bg-card);
+            color: var(--text-main);
+            padding: 1rem 1.5rem;
+            border-radius: 8px;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+            border-left: 5px solid var(--secondary);
+            transform: translateY(100px);
+            transition: transform 0.3s cubic-bezier(0.68, -0.55, 0.27, 1.55);
+            z-index: 1000;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .toast.show { transform: translateY(0); }
+
+        /* --- Animations --- */
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes slideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes popIn { to { opacity: 1; transform: scale(1); } }
+
+        /* Loading Spinner */
+        .spinner {
+            border: 3px solid rgba(0,0,0,0.1);
+            border-radius: 50%;
+            border-top: 3px solid var(--primary);
+            width: 20px;
+            height: 20px;
+            animation: spin 1s linear infinite;
+            display: none;
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+        /* Validation Message */
+        .validation-msg {
+            font-size: 0.75rem;
+            color: var(--danger);
+            margin-top: 0.3rem;
+            display: none;
+        }
+        .validation-msg.show { display: block; }
+
+    </style>
+</head>
+<body>
+
+    <header>
+        <div class="logo">
+            <i class="fa-solid fa-chart-pie"></i>
+            <span>LotoAnalytics</span>
+        </div>
+        <button class="theme-btn" onclick="toggleTheme()">
+            <i class="fa-solid fa-moon"></i> <span id="theme-text">Escuro</span>
+        </button>
+    </header>
+
+    <div class="container">
+        <!-- Sidebar / Controls -->
+        <aside>
+            <div class="card">
+                <div class="card-header">
+                    <i class="fa-solid fa-file-import"></i>
+                    <h2>1. Carregar Dados</h2>
+                </div>
+                <div class="form-group">
+                    <div class="file-drop-area">
+                        <i class="fa-solid fa-cloud-arrow-up"></i>
+                        <div class="file-msg">Arraste seu Excel ou clique aqui</div>
+                        <input type="file" id="fileInput" accept=".xlsx, .xls">
+                    </div>
+                    <div id="fileStatus" style="margin-top: 10px; font-size: 0.85rem; color: var(--secondary); display: none;">
+                        <i class="fa-solid fa-check-circle"></i> <span id="fileName"></span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card" style="margin-top: 2rem;">
+                <div class="card-header">
+                    <i class="fa-solid fa-sliders"></i>
+                    <h2>2. Configurar</h2>
+                </div>
+                
+                <!-- NOVO CAMPO: Quantidade de números por sequência -->
+                <div class="form-group">
+                    <label for="seqLength">🔢 Quantidade de Números por Sequência</label>
+                    <input type="number" id="seqLength" value="15" min="15" max="20" required>
+                    <small id="seqLengthHelp" style="color: var(--text-muted); font-size: 0.75rem;">
+                        Mínimo: 15, Máximo: 20 números
+                    </small>
+                    <div id="seqLengthError" class="validation-msg">
+                        <i class="fa-solid fa-triangle-exclamation"></i> Valor deve estar entre 15 e 20
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label>Últimos Jogos para Analisar</label>
+                    <input type="number" id="gamesCount" placeholder="Ex: 10 (Deixe vazio para todos)">
+                </div>
+                <div class="form-group">
+                    <label>Qtd. Números "Frios" na Base</label>
+                    <input type="number" id="baseCount" value="8" min="1" max="25">
+                    <small style="color: var(--text-muted); font-size: 0.75rem;">Serão escolhidos os que menos saíram (1-25).</small>
+                </div>
+                <div class="form-group">
+                    <label>Sequências para Gerar</label>
+                    <input type="number" id="seqCount" value="5" min="1">
+                </div>
+                <button class="btn btn-primary" onclick="processAnalysis()">
+                    <span class="spinner" id="btnSpinner"></span>
+                    <span id="btnText">Gerar Análise</span>
+                </button>
+            </div>
+        </aside>
+
+        <!-- Main Content / Results -->
+        <main>
+            <!-- Welcome State -->
+            <div id="welcomeState" class="card" style="text-align: center; padding: 4rem 2rem;">
+                <i class="fa-solid fa-laptop-code" style="font-size: 4rem; color: var(--border); margin-bottom: 1rem;"></i>
+                <h2 style="color: var(--text-main);">Pronto para Analisar</h2>
+                <p style="color: var(--text-muted);">Carregue sua planilha no menu lateral e configure os parâmetros para começar a identificar os números frios.</p>
+            </div>
+
+            <!-- Results State -->
+            <div id="resultsState" class="results-section">
+                
+                <!-- Cold Numbers Analysis -->
+                <div class="card" style="margin-bottom: 2rem;">
+                    <div class="card-header">
+                        <i class="fa-solid fa-snowflake" style="color: var(--accent);"></i>
+                        <h2>Análise de 25 Números Frios</h2>
+                    </div>
+                    <p style="color: var(--text-muted); margin-bottom: 1rem;">
+                        Estes são os <strong>25 números que menos saíram</strong> no período analisado, ordenados do menos frequente para o mais frequente.
+                    </p>
+                    
+                    <div class="stats-grid" id="coldNumbersGrid">
+                        <!-- Injected via JS -->
+                    </div>
+
+                    <div style="background: var(--bg-body); padding: 1rem; border-radius: 8px; margin-top: 1rem;">
+                        <strong style="color: var(--primary);">Base Selecionada (Fixos):</strong>
+                        <div class="balls-container" id="selectedBaseDisplay" style="justify-content: flex-start; margin-top: 5px;"></div>
+                    </div>
+                </div>
+
+                <!-- Legend -->
+                <div class="card" style="margin-bottom: 2rem;">
+                    <div class="card-header">
+                        <i class="fa-solid fa-circle-info" style="color: var(--text-muted);"></i>
+                        <h2>Legenda das Cores</h2>
+                    </div>
+                    <div class="legend">
+                        <div class="legend-item">
+                            <div class="legend-ball" style="background: var(--ball-fixed);">🔴</div>
+                            <span>Número Fixo (Base Fria)</span>
+                        </div>
+                        <div class="legend-item">
+                            <div class="legend-ball" style="background: var(--ball-repeat);">🟠</div>
+                            <span>Repetido em +1 sequência</span>
+                        </div>
+                        <div class="legend-item">
+                            <div class="legend-ball" style="background: var(--ball-rare);">🔷</div>
+                            <span>Menos frequente nas sequências</span>
+                        </div>
+                        <div class="legend-item">
+                            <div class="legend-ball" style="background: var(--ball-gradient);">🔵</div>
+                            <span>Número Regular</span>
+                        </div>
+                        <div class="legend-item">
+                            <div class="legend-ball" style="background: var(--ball-extra);">🟣</div>
+                            <span>Jogo Extra (Análise)</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Generated Sequences -->
+                <div class="card">
+                    <div class="card-header">
+                        <i class="fa-solid fa-list-ol"></i>
+                        <h2>Sequências Sugeridas</h2>
+                        <button class="btn btn-success" style="width: auto; padding: 0.5rem 1rem; font-size: 0.8rem;" onclick="downloadResults()">
+                            <i class="fa-solid fa-download"></i> Baixar .TXT
+                        </button>
+                    </div>
+                    <div id="sequencesList">
+                        <!-- Injected via JS -->
+                    </div>
+                </div>
+
+                <!-- Frequency Analysis & Extra Games -->
+                <div class="card freq-analysis" id="freqAnalysisCard" style="display: none;">
+                    <div class="card-header">
+                        <i class="fa-solid fa-chart-bar" style="color: var(--ball-rare);"></i>
+                        <h2>Análise de Frequência nas Sequências</h2>
+                    </div>
+                    <p style="color: var(--text-muted); margin-bottom: 1rem;">
+                        Números ordenados por frequência nas sequências geradas. Os <strong>menos frequentes (ciano)</strong> foram usados para criar os jogos extras.
+                    </p>
+                    <div class="freq-grid" id="freqGrid">
+                        <!-- Injected via JS -->
+                    </div>
+                </div>
+
+                <!-- Extra Games -->
+                <div class="card" id="extraGamesCard" style="display: none;">
+                    <div class="card-header">
+                        <i class="fa-solid fa-star" style="color: var(--ball-extra);"></i>
+                        <h2>Jogos Extras (Baseado nos Menos Frequentes)</h2>
+                    </div>
+                    <p style="color: var(--text-muted); margin-bottom: 1rem;">
+                        2 jogos adicionais gerados a partir dos números que <strong>MENOS</strong> se repetiram nas sequências criadas.
+                    </p>
+                    <div id="extraGamesList">
+                        <!-- Injected via JS -->
+                    </div>
+                </div>
+
+            </div>
+        </main>
+    </div>
+
+    <!-- Toast Notification -->
+    <div id="toast" class="toast">
+        <i class="fa-solid fa-circle-check" style="color: var(--secondary);"></i>
+        <span id="toastMsg">Operação realizada com sucesso!</span>
+    </div>
+
+    <script>
+        // --- State Management ---
+        let excelData = null;
+        let bolaColumns = [];
+        let generatedSequences = [];
+        let extraGames = [];
+        let fixedBaseNumbers = [];
+        let numberFrequency = {};
+        let leastFrequentNumbers = [];
+        let isDark = false;
+        
+        // NOVO: Armazenar sequências existentes para verificação de duplicidade
+        let existingSequencesSet = new Set();
+
+        // --- Theme Toggle ---
+        function toggleTheme() {
+            isDark = !isDark;
+            document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light');
+            const icon = document.querySelector('.theme-btn i');
+            const text = document.getElementById('theme-text');
+            
+            if(isDark) {
+                icon.className = 'fa-solid fa-sun';
+                text.innerText = 'Claro';
+            } else {
+                icon.className = 'fa-solid fa-moon';
+                text.innerText = 'Escuro';
+            }
+        }
+
+        // --- UI Helpers ---
+        function showToast(msg, type = 'success') {
+            const toast = document.getElementById('toast');
+            const toastMsg = document.getElementById('toastMsg');
+            const icon = toast.querySelector('i');
+            
+            toastMsg.innerText = msg;
+            icon.className = type === 'error' ? 'fa-solid fa-circle-exclamation' : 'fa-solid fa-circle-check';
+            icon.style.color = type === 'error' ? 'var(--danger)' : 'var(--secondary)';
+            toast.style.borderLeftColor = type === 'error' ? 'var(--danger)' : 'var(--secondary)';
+            
+            toast.classList.add('show');
+            setTimeout(() => toast.classList.remove('show'), 3000);
+        }
+
+        function showLoading(isLoading) {
+            const spinner = document.getElementById('btnSpinner');
+            const text = document.getElementById('btnText');
+            const btn = document.querySelector('.btn-primary');
+            
+            if(isLoading) {
+                spinner.style.display = 'block';
+                text.innerText = 'Processando...';
+                btn.disabled = true;
+                btn.style.opacity = '0.7';
+            } else {
+                spinner.style.display = 'none';
+                text.innerText = 'Gerar Análise';
+                btn.disabled = false;
+                btn.style.opacity = '1';
+            }
+        }
+
+        // --- Validação do campo de quantidade de números ---
+        function validateSeqLength(value) {
+            const num = parseInt(value);
+            const errorEl = document.getElementById('seqLengthError');
+            const helpEl = document.getElementById('seqLengthHelp');
+            
+            if (isNaN(num) || num < 15 || num > 20) {
+                errorEl.classList.add('show');
+                helpEl.style.color = 'var(--danger)';
+                return false;
+            } else {
+                errorEl.classList.remove('show');
+                helpEl.style.color = 'var(--text-muted)';
+                return true;
+            }
+        }
+
+        // Listener para validação em tempo real
+        document.getElementById('seqLength').addEventListener('input', function(e) {
+            validateSeqLength(e.target.value);
+        });
+
+        document.getElementById('seqLength').addEventListener('blur', function(e) {
+            validateSeqLength(e.target.value);
+        });
+
+        // --- File Handling ---
+        document.getElementById('fileInput').addEventListener('change', async (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            try {
+                const data = await file.arrayBuffer();
+                const workbook = XLSX.read(data, { type: 'array' });
+                const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+                excelData = XLSX.utils.sheet_to_json(firstSheet, { header: 1 });
+
+                // Identify Columns
+                if (excelData.length > 0) {
+                    const headers = excelData[0];
+                    bolaColumns = headers.map((h, i) => (h && h.toString().startsWith('Bola')) ? i : -1).filter(i => i !== -1);
+                    
+                    if (bolaColumns.length === 0) throw new Error("Colunas 'Bola' não encontradas.");
+
+                    document.getElementById('fileName').innerText = `${file.name} (${excelData.length - 1} jogos)`;
+                    document.getElementById('fileStatus').style.display = 'block';
+                    
+                    // NOVO: Extrair sequências existentes para verificação de duplicidade
+                    extractExistingSequences();
+                    
+                    showToast('Arquivo carregado com sucesso!');
+                }
+            } catch (err) {
+                showToast(err.message, 'error');
+                excelData = null;
+            }
+        });
+
+        // NOVO: Função para extrair sequências existentes do Excel
+        function extractExistingSequences() {
+            existingSequencesSet = new Set();
+            if (!excelData || excelData.length < 2) return;
+            
+            for (let i = 1; i < excelData.length; i++) {
+                const row = excelData[i];
+                const seq = [];
+                
+                bolaColumns.forEach(col => {
+                    const val = row[col];
+                    if (val && !isNaN(val)) {
+                        seq.push(parseInt(val));
+                    }
+                });
+                
+                // Só adiciona se tiver pelo menos 15 números
+                if (seq.length >= 15) {
+                    // Ordena e converte para string para comparação
+                    seq.sort((a, b) => a - b);
+                    existingSequencesSet.add(seq.join(','));
+                }
+            }
+            console.log(`📊 ${existingSequencesSet.size} sequências existentes carregadas para verificação`);
+        }
+
+        // NOVO: Função para verificar se uma sequência já existe
+        function sequenceExists(sequence) {
+            const seqStr = sequence.sort((a, b) => a - b).join(',');
+            return existingSequencesSet.has(seqStr);
+        }
+
+        // --- Core Logic ---
+        async function processAnalysis() {
+            // Validação do novo campo
+            const seqLengthInput = document.getElementById('seqLength');
+            if (!validateSeqLength(seqLengthInput.value)) {
+                showToast('Quantidade de números deve estar entre 15 e 20', 'error');
+                seqLengthInput.focus();
+                return;
+            }
+            
+            if (!excelData) {
+                showToast('Por favor, carregue um arquivo Excel primeiro.', 'error');
+                return;
+            }
+
+            showLoading(true);
+
+            // Simulate processing delay for UX
+            await new Promise(r => setTimeout(r, 800));
+
+            try {
+                const totalGames = excelData.length - 1;
+                let limit = document.getElementById('gamesCount').value;
+                limit = limit ? parseInt(limit) : totalGames;
+                if (limit > totalGames) limit = totalGames;
+
+                const startIndex = Math.max(1, excelData.length - limit);
+                const numbers = [];
+                
+                // Extract Numbers
+                for (let i = startIndex; i < excelData.length; i++) {
+                    const row = excelData[i];
+                    bolaColumns.forEach(col => {
+                        const val = row[col];
+                        if (val && !isNaN(val)) numbers.push(parseInt(val));
+                    });
+                }
+
+                // Frequency Count from Excel
+                const freq = {};
+                numbers.forEach(n => freq[n] = (freq[n] || 0) + 1);
+                
+                // Sort by Frequency (Ascending) to find Cold Numbers
+                const sortedFreq = Object.entries(freq)
+                    .sort((a, b) => a[1] - b[1])
+                    .slice(0, 25);
+
+                const coldNumbers = sortedFreq.map(([num, count]) => ({ num: parseInt(num), count }));
+                
+                // Select Base (Fixed Cold Numbers)
+                const baseQty = parseInt(document.getElementById('baseCount').value) || 8;
+                fixedBaseNumbers = coldNumbers.slice(0, baseQty).map(item => item.num).sort((a,b) => a-b);
+
+                // NOVO: Obter quantidade de números por sequência
+                const seqLength = parseInt(document.getElementById('seqLength').value) || 15;
+                
+                // Generate Sequences
+                const seqQty = parseInt(document.getElementById('seqCount').value) || 5;
+                generatedSequences = [];
+                numberFrequency = {};
+                
+                for(let i = 0; i < seqQty; i++) {
+                    // NOVO: Gerar sequência única (verificando duplicidade)
+                    const sequence = generateUniqueSequence(fixedBaseNumbers, seqLength);
+                    generatedSequences.push(sequence);
+                    
+                    // Count frequency across all sequences
+                    sequence.forEach(num => {
+                        numberFrequency[num] = (numberFrequency[num] || 0) + 1;
+                    });
+                }
+
+                // Get LEAST frequent numbers from generated sequences
+                const sortedByFreqAsc = Object.entries(numberFrequency)
+                    .sort((a, b) => a[1] - b[1])
+                    .map(([num, count]) => ({ num: parseInt(num), count }));
+                
+                // Take the 8 LEAST frequent numbers for extra games
+                leastFrequentNumbers = sortedByFreqAsc.slice(0, 8).map(item => item.num);
+                
+                // Generate 2 Extra Games from LEAST frequent numbers in sequences
+                extraGames = generateExtraGames(2, seqLength);
+
+                // Render Results
+                renderColdNumbers(coldNumbers, fixedBaseNumbers);
+                renderSequences(seqLength);
+                renderFrequencyAnalysis(sortedByFreqAsc);
+                renderExtraGames(seqLength);
+                
+                document.getElementById('welcomeState').style.display = 'none';
+                document.getElementById('resultsState').classList.add('active');
+                document.getElementById('freqAnalysisCard').style.display = 'block';
+                document.getElementById('extraGamesCard').style.display = 'block';
+                
+                const duplicatesAvoided = generatedSequences.filter(seq => 
+                    existingSequencesSet.has(seq.join(','))
+                ).length;
+                
+                if (duplicatesAvoided > 0) {
+                    showToast(`Análise concluída! ${duplicatesAvoided} duplicatas evitadas.`);
+                } else {
+                    showToast('Análise concluída com sucesso!');
+                }
+
+            } catch (err) {
+                showToast('Erro na análise: ' + err.message, 'error');
+                console.error(err);
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        // MODIFICADO: Função para gerar sequência com tamanho personalizável
+        function generateSequence(base, seqLength = 15) {
+            const baseSet = new Set(base);
+            const remaining = [];
+            for(let i = 1; i <= 25; i++) {
+                if(!baseSet.has(i)) remaining.push(i);
+            }
+            
+            // Shuffle remaining using Fisher-Yates
+            for (let i = remaining.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [remaining[i], remaining[j]] = [remaining[j], remaining[i]];
+            }
+            
+            // Calcula quantos números adicionais são necessários
+            const additionalNeeded = seqLength - base.length;
+            
+            // Garante que não exceda o pool disponível
+            const finalSeq = [...base, ...remaining.slice(0, Math.min(additionalNeeded, remaining.length))];
+            return finalSeq.sort((a,b) => a-b);
+        }
+
+        // NOVO: Função para gerar sequência única (sem duplicidade com a tabela)
+        function generateUniqueSequence(base, seqLength = 15, maxAttempts = 500) {
+            let attempts = 0;
+            let sequence;
+            
+            do {
+                sequence = generateSequence(base, seqLength);
+                attempts++;
+                
+                // Previne loop infinito em caso de pool muito limitado
+                if (attempts >= maxAttempts) {
+                    console.warn(`⚠️ Limite de tentativas atingido (${maxAttempts}). Usando última sequência gerada.`);
+                    break;
+                }
+            } while (sequenceExists([...sequence])); // Cria cópia para não modificar original
+            
+            return sequence;
+        }
+
+        // MODIFICADO: Função para gerar jogos extras com tamanho personalizável
+        function generateExtraGames(qty, seqLength = 15) {
+            const games = [];
+            for(let i = 0; i < qty; i++) {
+                // Usa os números menos frequentes como base para os extras
+                games.push(generateUniqueSequence(leastFrequentNumbers, seqLength));
+            }
+            return games;
+        }
+
+        // --- Rendering ---
+        function renderColdNumbers(allCold, selectedBase) {
+            const grid = document.getElementById('coldNumbersGrid');
+            grid.innerHTML = '';
+            
+            allCold.forEach((item, idx) => {
+                const isSelected = selectedBase.includes(item.num);
+                const div = document.createElement('div');
+                div.className = 'stat-item';
+                div.style.borderColor = isSelected ? 'var(--primary)' : 'var(--border)';
+                div.style.background = isSelected ? 'rgba(79, 70, 229, 0.1)' : 'var(--bg-body)';
+                
+                div.innerHTML = `
+                    <div class="stat-num">${item.num}</div>
+                    <div class="stat-freq">${item.count}x</div>
+                    ${isSelected ? '<i class="fa-solid fa-check" style="color:var(--primary); font-size:0.7rem; margin-top:4px;"></i>' : ''}
+                `;
+                grid.appendChild(div);
+            });
+
+            const baseDisplay = document.getElementById('selectedBaseDisplay');
+            baseDisplay.innerHTML = '';
+            selectedBase.forEach((num, idx) => {
+                const ball = document.createElement('div');
+                ball.className = 'ball fixed';
+                ball.innerText = num;
+                ball.style.animationDelay = `${idx * 0.05}s`;
+                baseDisplay.appendChild(ball);
+            });
+        }
+
+        // MODIFICADO: Função para renderizar sequências com tamanho dinâmico
+        function renderSequences(seqLength = 15) {
+            const list = document.getElementById('sequencesList');
+            list.innerHTML = '';
+
+            generatedSequences.forEach((seq, idx) => {
+                const card = document.createElement('div');
+                card.className = 'sequence-card';
+                card.style.animationDelay = `${idx * 0.1}s`;
+                
+                const ballsHtml = seq.map((num, ballIdx) => {
+                    const isFixed = fixedBaseNumbers.includes(num);
+                    const repeatCount = numberFrequency[num] || 0;
+                    const isRepeat = repeatCount > 1;
+                    const isLeastFrequent = leastFrequentNumbers.includes(num);
+                    
+                    let ballClass = 'regular';
+                    let tooltip = '';
+                    
+                    if (isFixed) {
+                        ballClass = 'fixed';
+                        tooltip = 'Fixo (Base Fria)';
+                    } else if (isLeastFrequent) {
+                        ballClass = 'rare';
+                        tooltip = `Menos frequente (${repeatCount}x)`;
+                    } else if (isRepeat) {
+                        ballClass = 'repeat';
+                        tooltip = `Repetido em ${repeatCount} jogos`;
+                    }
+                    
+                    return `
+                        <div class="ball ${ballClass}" style="animation-delay: ${ballIdx * 0.03}s">
+                            ${num}
+                            <span class="tooltip">${tooltip}</span>
+                        </div>
+                    `;
+                }).join('');
+                
+                card.innerHTML = `
+                    <div class="seq-header">
+                        <span class="seq-title">Jogo ${idx + 1} (${seq.length} números)</span>
+                        <button class="copy-btn" onclick="copyToClipboard('${seq.join(' - ')}')">
+                            <i class="fa-regular fa-copy"></i> Copiar
+                        </button>
+                    </div>
+                    <div class="balls-container" style="justify-content: flex-start;">
+                        ${ballsHtml}
+                    </div>
+                `;
+                list.appendChild(card);
+            });
+        }
+
+        function renderFrequencyAnalysis(sortedByFreq) {
+            const grid = document.getElementById('freqGrid');
+            grid.innerHTML = '';
+            
+            sortedByFreq.forEach((item, idx) => {
+                const numItem = document.createElement('div');
+                numItem.className = 'freq-item';
+                
+                const isLeastFrequent = idx < 8;
+                const isMostFrequent = idx >= sortedByFreq.length - 8;
+                
+                if (isLeastFrequent) {
+                    numItem.classList.add('rare');
+                } else if (isMostFrequent) {
+                    numItem.classList.add('common');
+                }
+                
+                numItem.innerHTML = `
+                    <div class="freq-num">${item.num}</div>
+                    <div class="freq-count">${item.count}x</div>
+                `;
+                grid.appendChild(numItem);
+            });
+        }
+
+        // MODIFICADO: Função para renderizar jogos extras com tamanho dinâmico
+        function renderExtraGames(seqLength = 15) {
+            const list = document.getElementById('extraGamesList');
+            list.innerHTML = '';
+            
+            extraGames.forEach((seq, idx) => {
+                const card = document.createElement('div');
+                card.className = 'sequence-card extra-game';
+                card.style.animationDelay = `${idx * 0.1}s`;
+                
+                const ballsHtml = seq.map((num, ballIdx) => {
+                    const isFixed = fixedBaseNumbers.includes(num);
+                    const repeatCount = numberFrequency[num] || 0;
+                    const isRepeat = repeatCount > 1;
+                    const isLeastFrequent = leastFrequentNumbers.includes(num);
+                    
+                    let ballClass = 'extra';
+                    let tooltip = 'Jogo Extra';
+                    
+                    if (isLeastFrequent) {
+                        tooltip = 'Base (Menos Frequente)';
+                    }
+                    if (isFixed) {
+                        tooltip += ' + Fixo';
+                    }
+                    if (isRepeat) {
+                        tooltip += ` + Repetido (${repeatCount}x)`;
+                    }
+                    
+                    return `
+                        <div class="ball ${ballClass}" style="animation-delay: ${ballIdx * 0.03}s">
+                            ${num}
+                            <span class="tooltip">${tooltip}</span>
+                        </div>
+                    `;
+                }).join('');
+                
+                card.innerHTML = `
+                    <div class="seq-header">
+                        <span class="seq-title">Jogo Extra ${idx + 1} (${seq.length} números)</span>
+                        <span class="seq-badge">MENOS FREQUENTES</span>
+                        <button class="copy-btn" onclick="copyToClipboard('${seq.join(' - ')}')">
+                            <i class="fa-regular fa-copy"></i> Copiar
+                        </button>
+                    </div>
+                    <div class="balls-container" style="justify-content: flex-start;">
+                        ${ballsHtml}
+                    </div>
+                `;
+                list.appendChild(card);
+            });
+        }
+
+        function copyToClipboard(text) {
+            navigator.clipboard.writeText(text);
+            showToast('Copiado para área de transferência!');
+        }
+
+        function downloadResults() {
+            if(generatedSequences.length === 0 && extraGames.length === 0) return;
+            
+            const seqLength = document.getElementById('seqLength').value || 15;
+            
+            let content = `SEQUÊNCIAS GERADAS - LOTOANALYTICS\n`;
+            content += `=================================\n`;
+            content += `Configuração: ${seqLength} números por sequência\n\n`;
+            content += "JOGOS PRINCIPAIS:\n";
+            content += "-----------------\n";
+            generatedSequences.forEach((seq, i) => {
+                content += `Jogo ${i+1}: ${seq.join(' - ')}\n`;
+            });
+            
+            if(extraGames.length > 0) {
+                content += "\nJOGOS EXTRAS (Menos Frequentes nas Sequências):\n";
+                content += "----------------------------------------------\n";
+                extraGames.forEach((seq, i) => {
+                    content += `Extra ${i+1}: ${seq.join(' - ')}\n`;
+                });
+            }
+            
+            content += "\n\nLEGENDA:\n";
+            content += "🔴 = Número Fixo (Base Fria)\n";
+            content += "🟠 = Número Repetido em +1 sequência\n";
+            content += "🔷 = Menos frequente nas sequências\n";
+            content += "🟣 = Jogo Extra (Análise)\n";
+            content += `\n⚠️ Todas as sequências foram verificadas contra a tabela carregada para evitar duplicatas.\n`;
+
+            const blob = new Blob([content], { type: 'text/plain' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `loto_frios_${new Date().getTime()}.txt`;
+            a.click();
+        }
+    </script>
+</body>
+</html>
