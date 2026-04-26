@@ -1,0 +1,544 @@
+<!DOCTYPE html>
+<html lang="pt-BR" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>Lotofácil Predictor</title>
+  <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+  <style>
+    :root {
+      --bg: #f8fafc; --surface: #ffffff; --text: #0f172a; --text-muted: #64748b;
+      --primary: #6366f1; --primary-hover: #4f46e5; --primary-light: #e0e7ff;
+      --border: #e2e8f0; --success: #10b981; --warning: #f59e0b; --danger: #ef4444;
+      --radius: 16px; --shadow: 0 4px 16px rgba(0,0,0,0.08); --shadow-hover: 0 8px 24px rgba(0,0,0,0.12);
+      --font: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+      --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    [data-theme="dark"] {
+      --bg: #0b1120; --surface: #151c2c; --text: #f1f5f9; --text-muted: #94a3b8;
+      --primary: #818cf8; --primary-hover: #6366f1; --primary-light: #1e293b;
+      --border: #334155; --shadow: 0 4px 16px rgba(0,0,0,0.4); --shadow-hover: 0 8px 24px rgba(0,0,0,0.6);
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; }
+    body {
+      font-family: var(--font); background: var(--bg); color: var(--text);
+      min-height: 100dvh; display: flex; flex-direction: column;
+      transition: background 0.3s, color 0.3s;
+      padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+    }
+    header {
+      background: var(--surface); padding: 1rem; display: flex; justify-content: space-between; align-items: center;
+      border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 100;
+      backdrop-filter: blur(10px); background-color: color-mix(in srgb, var(--surface) 85%, transparent);
+      transition: var(--transition);
+    }
+    .logo { font-weight: 800; font-size: 1.15rem; letter-spacing: -0.5px; background: linear-gradient(90deg, var(--primary), #8b5cf6); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+    .theme-btn {
+      background: none; border: 2px solid var(--border); border-radius: 50%; width: 44px; height: 44px;
+      cursor: pointer; display: flex; align-items: center; justify-content: center; transition: var(--transition); color: var(--text);
+      touch-action: manipulation;
+    }
+    .theme-btn:hover { border-color: var(--primary); transform: rotate(15deg); }
+    .theme-btn:active { transform: scale(0.95); }
+    main { flex: 1; padding: 1rem; max-width: 680px; margin: 0 auto; width: 100%; }
+    .card {
+      background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+      padding: 1.25rem; margin-bottom: 1rem; box-shadow: var(--shadow); transition: var(--transition);
+      opacity: 0; transform: translateY(12px);
+    }
+    .card.visible { opacity: 1; transform: translateY(0); }
+    .card h2 { font-size: 1.1rem; margin-bottom: 0.75rem; color: var(--primary); }
+    label { display: block; margin-bottom: 0.4rem; font-weight: 500; font-size: 0.9rem; }
+    input, select, button {
+      width: 100%; padding: 0.9rem; border-radius: 12px; border: 1px solid var(--border);
+      background: var(--bg); color: var(--text); font-size: 1rem; margin-bottom: 1rem;
+      transition: var(--transition); outline: none; touch-action: manipulation;
+    }
+    input:focus, select:focus { border-color: var(--primary); box-shadow: 0 0 0 3px var(--primary-light); }
+    button {
+      background: var(--primary); color: white; border: none; font-weight: 600; cursor: pointer; margin-top: 0.5rem;
+      position: relative; overflow: hidden;
+    }
+    button:hover { background: var(--primary-hover); }
+    button:disabled { opacity: 0.6; cursor: not-allowed; }
+    button.secondary { background: transparent; border: 1px solid var(--border); color: var(--text); }
+    button.secondary:hover { border-color: var(--primary); color: var(--primary); background: var(--primary-light); }
+    .file-drop {
+      border: 2px dashed var(--border); border-radius: var(--radius); padding: 2rem; text-align: center; cursor: pointer; transition: var(--transition);
+    }
+    .file-drop:hover { border-color: var(--primary); background: var(--primary-light); }
+    .file-drop input { display: none; }
+    .status-msg { font-size: 0.85rem; margin-top: 0.5rem; min-height: 20px; }
+    .status-msg.success { color: var(--success); }
+    .status-msg.error { color: var(--danger); }
+    .status-msg.info { color: var(--primary); }
+    .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 1rem; margin-bottom: 1rem; }
+    .stat-box { background: var(--bg); padding: 1rem; border-radius: 12px; text-align: center; }
+    .stat-box h3 { font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 0.6rem; }
+    .ball-grid { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
+    .ball {
+      width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
+      font-weight: 700; font-size: 0.85rem; color: white; box-shadow: 0 3px 8px rgba(0,0,0,0.2);
+      transition: transform 0.2s ease;
+    }
+    .ball:hover { transform: scale(1.15); }
+    .ball.hot { background: linear-gradient(135deg, #ef4444, #f97316); }
+    .ball.cold { background: linear-gradient(135deg, #3b82f6, #06b6d4); }
+    .potential-section {
+      background: linear-gradient(135deg, var(--primary), #8b5cf6);
+      color: white; border: none; position: relative; overflow: hidden; padding: 1.5rem;
+    }
+    .potential-section h2 { color: white; text-shadow: 0 2px 6px rgba(0,0,0,0.2); margin-bottom: 1rem; }
+    .potential-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(60px, 1fr)); gap: 12px; position: relative; z-index: 1; }
+    .potential-ball {
+      background: rgba(255,255,255,0.18); backdrop-filter: blur(6px); border: 1px solid rgba(255,255,255,0.4);
+      border-radius: 14px; padding: 0.6rem 0.2rem; text-align: center; transition: transform 0.2s, background 0.2s; box-shadow: 0 4px 10px rgba(0,0,0,0.15);
+    }
+    .potential-ball:hover { transform: translateY(-4px) scale(1.03); background: rgba(255,255,255,0.28); }
+    .ball-num { display: block; font-size: 1.5rem; font-weight: 800; text-shadow: 0 1px 2px rgba(0,0,0,0.2); }
+    .ball-prob { display: block; font-size: 0.6rem; opacity: 0.9; margin-top: 2px; font-weight: 500; }
+    .seq-list { display: flex; flex-direction: column; gap: 0.8rem; max-height: 60dvh; overflow-y: auto; padding-right: 4px; }
+    .seq-item { background: var(--bg); padding: 0.8rem; border-radius: 12px; border: 1px solid var(--border); }
+    .seq-header { display: flex; justify-content: space-between; margin-bottom: 0.5rem; font-size: 0.8rem; font-weight: 600; color: var(--text-muted); }
+    .seq-num {
+      width: 34px; height: 34px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
+      font-size: 0.85rem; font-weight: 700; color: white; box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+      transition: transform 0.2s;
+    }
+    .seq-num:hover { transform: scale(1.15); }
+    .seq-num.fixed { background: linear-gradient(135deg, #8b5cf6, #a78bfa); box-shadow: 0 0 8px rgba(139, 92, 246, 0.4); border: 2px solid var(--surface); z-index: 1; }
+    .seq-num.hot { background: linear-gradient(135deg, #ef4444, #f87171); }
+    .seq-num.warm { background: linear-gradient(135deg, #f97316, #fb923c); }
+    .seq-num.med { background: linear-gradient(135deg, #eab308, #facc15); color: #422006; }
+    .seq-num.cool { background: linear-gradient(135deg, #3b82f6, #60a5fa); }
+    .seq-num.cold { background: linear-gradient(135deg, #64748b, #94a3b8); }
+    .export-group { display: flex; gap: 0.75rem; margin-top: 1rem; flex-wrap: wrap; }
+    .export-group button { flex: 1; min-width: 120px; margin: 0; }
+    .toast {
+      position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(20px);
+      background: var(--surface); color: var(--text); padding: 0.9rem 1.3rem;
+      border-radius: 30px; box-shadow: var(--shadow-hover); border: 1px solid var(--border);
+      opacity: 0; pointer-events: none; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); z-index: 999;
+      font-size: 0.9rem; text-align: center; max-width: 90%;
+    }
+    .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 10px; }
+    @media (max-width: 480px) {
+      .stats-grid { grid-template-columns: 1fr; }
+      .potential-grid { grid-template-columns: repeat(5, 1fr); }
+      .ball-num { font-size: 1.3rem; }
+      .seq-num { width: 30px; height: 30px; font-size: 0.8rem; }
+      h2 { font-size: 1rem; }
+    }
+    @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="logo">🎲 Lotofácil Predictor</div>
+    <button class="theme-btn" id="themeToggle" aria-label="Alternar tema">
+      <svg id="sunIcon" xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+      <svg id="moonIcon" class="hidden" xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+    </button>
+  </header>
+
+  <main>
+    <section class="card" id="uploadCard">
+      <h2>📂 Carregar Histórico</h2>
+      <div id="autoLoadMsg" class="status-msg info">Tentando carregar automaticamente...</div>
+      <label class="file-drop" id="dropZone">
+        <input type="file" id="fileInput" accept=".xlsx,.xls">
+        <p>Arraste o Excel aqui ou <span style="color:var(--primary); text-decoration:underline;">clique para selecionar</span></p>
+        <small style="color:var(--text-muted); display:block; margin-top:8px;">Formato: colunas "Bola1", "Bola2"...</small>
+      </label>
+      <div id="fileStatus" class="status-msg"></div>
+    </section>
+
+    <section class="card" id="statsCard" style="display:none;">
+      <h2>📊 Análise Estatística</h2>
+      <div class="stats-grid">
+        <div class="stat-box"><h3>🔥 Top 7 Frequentes</h3><div class="ball-grid" id="top7"></div></div>
+        <div class="stat-box"><h3>❄️ Top 7 Menos</h3><div class="ball-grid" id="bottom7"></div></div>
+      </div>
+    </section>
+
+    <section class="card potential-section" id="potentialCard" style="display:none;">
+      <h2>🎯 Top 10 Números com Maior Potencial</h2>
+      <div class="potential-grid" id="potentialGrid"></div>
+      <p style="font-size:0.8rem; opacity:0.9; margin-top:0.75rem; text-align:center; position:relative; z-index:1;">Ordenados por frequência e probabilidade ponderada.</p>
+    </section>
+
+    <section class="card" id="configCard" style="display:none;">
+      <h2>⚙️ Configuração da Geração</h2>
+      <label>Quantidade de Sequências</label>
+      <input type="number" id="seqCount" value="5" min="1" max="100">
+      <label>Total de Números por Sequência</label>
+      <input type="number" id="totalNums" value="15" min="5" max="25">
+      <label>Números Fixos por Sequência</label>
+      <input type="number" id="fixedCount" value="3" min="0" max="24">
+      <label>Tipo de Fixos</label>
+      <select id="fixType">
+        <option value="most">Mais Frequentes</option>
+        <option value="least">Menos Frequentes</option>
+      </select>
+      <button id="generateBtn">👁️ Visualizar Prévia e Gerar</button>
+    </section>
+
+    <section class="card" id="previewCard" style="display:none;">
+      <h2>✅ Prévia da Configuração</h2>
+      <div class="preview-box" style="background: var(--bg); padding: 1rem; border-radius: 12px; margin-bottom: 1rem; border: 1px dashed var(--border);">
+        <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.5rem;"><strong>Pool de números base:</strong></p>
+        <div class="ball-grid" id="previewGrid"></div>
+        <p id="previewInfo" style="font-size: 0.85rem; color: var(--text-muted); margin-top: 0.8rem; margin-bottom: 0;"></p>
+      </div>
+      <p style="font-size:0.85rem; color:var(--text-muted); margin-bottom:1rem;">
+        Cada jogo terá a quantidade de números fixos solicitada, sorteados aleatoriamente <em>dentre este pool</em>. 
+        Os demais serão completados por probabilidade. Deseja prosseguir?
+      </p>
+      <div style="display:flex; gap:0.75rem;">
+        <button id="confirmGenBtn" style="flex:2;">🚀 Confirmar e Gerar</button>
+        <button id="cancelGenBtn" class="secondary" style="flex:1;">↩️ Voltar</button>
+      </div>
+    </section>
+
+    <section class="card" id="resultsCard" style="display:none;">
+      <h2>🎲 Sequências Geradas</h2>
+      <div class="seq-list" id="seqList"></div>
+      <div class="export-group">
+        <button class="secondary" onclick="exportData('txt')">📄 Salvar em TXT</button>
+      </div>
+      <button id="generateAgainBtn" style="margin-top: 1rem; width: 100%;">🔄 Gerar Novamente</button>
+    </section>
+  </main>
+
+  <div class="toast" id="toast"></div>
+
+  <script>
+    const html = document.documentElement;
+    const sun = document.getElementById('sunIcon');
+    const moon = document.getElementById('moonIcon');
+    const metaTheme = document.getElementById('metaThemeColor');
+    
+    function setTheme(theme) {
+      html.setAttribute('data-theme', theme);
+      localStorage.setItem('theme', theme);
+      sun.classList.toggle('hidden', theme === 'dark');
+      moon.classList.toggle('hidden', theme === 'light');
+      if(metaTheme) metaTheme.content = theme === 'dark' ? '#0b1120' : '#6366f1';
+    }
+    setTheme(localStorage.getItem('theme') || 'light');
+    document.getElementById('themeToggle').addEventListener('click', () => setTheme(html.getAttribute('data-theme') === 'light' ? 'dark' : 'light'));
+
+    let existingSequences = new Set();
+    let frequencies = {};
+    let probabilities = {};
+    let generatedSequences = [];
+
+    function showSection(id) {
+      const el = document.getElementById(id);
+      el.style.display = 'block';
+      requestAnimationFrame(() => {
+        el.classList.add('visible');
+        el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      });
+    }
+
+    function hideSection(id) {
+      const el = document.getElementById(id);
+      el.classList.remove('visible');
+      setTimeout(() => el.style.display = 'none', 300);
+    }
+
+    function showMsg(msg, type = 'info') {
+      const el = document.getElementById('fileStatus');
+      el.textContent = msg;
+      el.className = `status-msg ${type}`;
+    }
+
+    const fileInput = document.getElementById('fileInput');
+    const dropZone = document.getElementById('dropZone');
+    
+    dropZone.addEventListener('click', () => fileInput.click());
+    dropZone.addEventListener('dragover', e => e.preventDefault());
+    dropZone.addEventListener('drop', e => { 
+      e.preventDefault(); 
+      if (e.dataTransfer.files.length) handleFile(e.dataTransfer.files[0]); 
+    });
+    fileInput.addEventListener('change', e => {
+      if (e.target.files.length) handleFile(e.target.files[0]);
+    });
+
+    function handleFile(file) {
+      if (!file.name.match(/\.xlsx?$/i)) return showMsg('Formato inválido. Use .xlsx ou .xls', 'error');
+      showMsg(`Lendo ${file.name}...`, 'info');
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        try {
+          const data = new Uint8Array(e.target.result);
+          const workbook = XLSX.read(data, { type: 'array' });
+          const sheet = workbook.Sheets[workbook.SheetNames[0]];
+          const json = XLSX.utils.sheet_to_json(sheet, { defval: null });
+          processExcelData(json);
+          showMsg(`✅ ${existingSequences.size} concursos carregados.`, 'success');
+          hideSection('uploadCard');
+          setTimeout(() => {
+            showSection('statsCard');
+            setTimeout(() => showSection('potentialCard'), 300);
+            setTimeout(() => showSection('configCard'), 600);
+          }, 500);
+        } catch (err) {
+          console.error(err);
+          showMsg('❌ Erro ao processar arquivo. Verifique o formato.', 'error');
+        }
+      };
+      reader.onerror = () => showMsg('❌ Falha na leitura do arquivo.', 'error');
+      reader.readAsArrayBuffer(file);
+    }
+
+    function processExcelData(rows) {
+      existingSequences.clear();
+      frequencies = {};
+      for(let i=1; i<=25; i++) frequencies[i] = 0;
+      
+      rows.forEach(row => {
+        const nums = [];
+        for (let i = 1; i <= 25; i++) {
+          const val = row[`Bola${i}`] || row[`bola${i}`] || row[`b${i}`];
+          if (val !== null && val !== undefined && !isNaN(Number(val))) nums.push(Number(val));
+        }
+        if (nums.length >= 15) {
+          nums.sort((a,b) => a-b);
+          existingSequences.add(nums.join(','));
+          nums.forEach(n => frequencies[n]++);
+        }
+      });
+
+      if (existingSequences.size === 0) throw new Error('Nenhum concurso válido encontrado.');
+
+      const total = Object.values(frequencies).reduce((a,b)=>a+b, 0);
+      probabilities = {};
+      for(let i=1; i<=25; i++) probabilities[i] = (frequencies[i] + 0.1) / (total + 2.5);
+
+      const sorted = Object.entries(frequencies).sort((a,b) => b[1] - a[1]);
+      const top7 = sorted.slice(0, 7).map(x => Number(x[0])).sort((a,b) => a - b);
+      const bottom7 = sorted.slice(-7).map(x => Number(x[0])).sort((a,b) => a - b);
+      
+      renderBalls('top7', top7, 'hot');
+      renderBalls('bottom7', bottom7, 'cold');
+
+      const top10Probs = Object.entries(probabilities).sort((a,b) => b[1] - a[1]).slice(0,10).map(x => Number(x[0])).sort((a,b) => a - b);
+      const potentialGrid = document.getElementById('potentialGrid');
+      potentialGrid.innerHTML = '';
+      top10Probs.forEach(num => {
+        const ball = document.createElement('div');
+        ball.className = 'potential-ball';
+        ball.innerHTML = `<span class="ball-num">${num.toString().padStart(2,'0')}</span><span class="ball-prob">${(probabilities[num]*100).toFixed(1)}%</span>`;
+        potentialGrid.appendChild(ball);
+      });
+    }
+
+    function renderBalls(containerId, numbers, type) {
+      const container = document.getElementById(containerId);
+      container.innerHTML = '';
+      numbers.forEach(num => {
+        const ball = document.createElement('div');
+        ball.className = `ball ${type}`;
+        ball.textContent = num.toString().padStart(2, '0');
+        container.appendChild(ball);
+      });
+    }
+
+    document.getElementById('generateBtn').addEventListener('click', () => {
+      const seqCount = parseInt(document.getElementById('seqCount').value);
+      const totalNums = parseInt(document.getElementById('totalNums').value);
+      const fixedCount = parseInt(document.getElementById('fixedCount').value);
+      const fixType = document.getElementById('fixType').value;
+
+      if (fixedCount >= totalNums) return showToast('Números fixos devem ser menores que o total.', true);
+      if (seqCount < 1) return showToast('Informe ao menos 1 sequência.', true);
+
+      const pendingParams = { seqCount, totalNums, fixedCount, fixType };
+      const sorted = Object.entries(frequencies).sort((a,b) => fixType === 'most' ? b[1] - a[1] : a[1] - b[1]);
+      const pool = sorted.slice(0, 7).map(x => Number(x[0])).sort((a,b) => a - b);
+
+      const grid = document.getElementById('previewGrid');
+      grid.innerHTML = '';
+      pool.forEach(num => {
+        const ball = document.createElement('div');
+        ball.className = `ball ${fixType === 'most' ? 'hot' : 'cold'}`;
+        ball.textContent = num.toString().padStart(2, '0');
+        grid.appendChild(ball);
+      });
+
+      document.getElementById('previewInfo').textContent = 
+        `Serão sorteados ${pendingParams.fixedCount} fixos deste grupo. Os ${pendingParams.totalNums - pendingParams.fixedCount} restantes serão preenchidos por probabilidade.`;
+
+      hideSection('configCard');
+      setTimeout(() => showSection('previewCard'), 300);
+    });
+
+    document.getElementById('confirmGenBtn').addEventListener('click', () => {
+      const btn = document.getElementById('confirmGenBtn');
+      btn.classList.add('loading');
+      setTimeout(() => {
+        executeGeneration();
+        hideSection('previewCard');
+        setTimeout(() => showSection('resultsCard'), 300);
+        btn.classList.remove('loading');
+        showToast(`Geradas ${generatedSequences.length} sequências únicas.`);
+      }, 600);
+    });
+
+    document.getElementById('cancelGenBtn').addEventListener('click', () => {
+      hideSection('previewCard');
+      setTimeout(() => showSection('configCard'), 300);
+    });
+
+    document.getElementById('generateAgainBtn').addEventListener('click', () => {
+      hideSection('resultsCard');
+      setTimeout(() => showSection('configCard'), 300);
+    });
+
+    function executeGeneration() {
+      const seqCount = parseInt(document.getElementById('seqCount').value);
+      const totalNums = parseInt(document.getElementById('totalNums').value);
+      const fixedCount = parseInt(document.getElementById('fixedCount').value);
+      const fixType = document.getElementById('fixType').value;
+
+      const sorted = Object.entries(frequencies).sort((a,b) => fixType === 'most' ? b[1] - a[1] : a[1] - b[1]);
+      const pool = sorted.slice(0, 7).map(x => Number(x[0]));
+      
+      generatedSequences = [];
+      const generatedSet = new Set();
+      const remaining = totalNums - fixedCount;
+      const allNums = Array.from({length:25},(_,i)=>i+1);
+      const maxAttempts = seqCount * 500;
+      let attempts = 0;
+
+      while (generatedSequences.length < seqCount && attempts < maxAttempts) {
+        attempts++;
+        let fixed = weightedSample(pool, pool.map(n=>probabilities[n]), fixedCount);
+        let available = allNums.filter(n => !fixed.includes(n));
+        let availProbs = available.map(n => probabilities[n]);
+        
+        let others = remaining > 0 ? weightedSample(available, availProbs, remaining) : [];
+        let seq = [...fixed, ...others].sort((a,b)=>a-b);
+        let seqStr = seq.join(',');
+
+        if (!existingSequences.has(seqStr) && !generatedSet.has(seqStr)) {
+          generatedSequences.push({ numbers: seq, fixed: [...fixed].sort((a,b)=>a-b) });
+          generatedSet.add(seqStr);
+        }
+      }
+      renderResults();
+    }
+
+    function weightedSample(items, weights, count) {
+      if (count <= 0) return [];
+      let tempItems = [...items], tempWeights = [...weights];
+      let selected = [];
+      while (selected.length < count) {
+        let sum = tempWeights.reduce((a,b)=>a+b,0);
+        let rand = Math.random() * sum;
+        let cumulative = 0, idx = 0;
+        for (let i=0; i<tempWeights.length; i++) {
+          cumulative += tempWeights[i];
+          if (rand < cumulative) { idx = i; break; }
+        }
+        selected.push(tempItems[idx]);
+        tempItems.splice(idx, 1);
+        tempWeights.splice(idx, 1);
+      }
+      return selected;
+    }
+
+    function renderResults() {
+      const list = document.getElementById('seqList');
+      list.innerHTML = '';
+      generatedSequences.forEach((item, i) => {
+        const div = document.createElement('div');
+        div.className = 'seq-item';
+        const numsHtml = item.numbers.map(n => {
+          const cls = getNumberClass(n, item.fixed);
+          return `<span class="seq-num ${cls}">${n.toString().padStart(2,'0')}</span>`;
+        }).join('');
+        div.innerHTML = `
+          <div class="seq-header"><span>Jogo ${(i+1).toString().padStart(3,'0')}</span><span>${item.fixed.length > 0 ? `${item.fixed.length} Fixos` : ''}</span></div>
+          <div class="ball-grid">${numsHtml}</div>`;
+        list.appendChild(div);
+      });
+    }
+
+    function getNumberClass(num, fixedList) {
+      if (fixedList.includes(num)) return 'fixed';
+      const sorted = Object.entries(frequencies).sort((a,b) => b[1] - a[1]);
+      const rank = sorted.findIndex(x => Number(x[0]) === num);
+      if (rank < 5) return 'hot';
+      if (rank < 10) return 'warm';
+      if (rank < 15) return 'med';
+      if (rank < 20) return 'cool';
+      return 'cold';
+    }
+
+    function exportData(type) {
+      if (!generatedSequences.length) return showToast('Gere sequências antes de exportar.', true);
+      const timestamp = new Date().toISOString().slice(0,19).replace(/:/g,'-');
+      const txt = generatedSequences.map((item, i) => `Sequência ${(i+1).toString().padStart(3,'0')}: ${item.numbers.map(n=>n.toString().padStart(2,'0')).join(' - ')}`).join('\n');
+      const blob = new Blob([txt], {type:'text/plain;charset=utf-8'});
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `sequencias_geradas_${timestamp}.txt`;
+      a.click();
+      URL.revokeObjectURL(url);
+      showToast('Arquivo TXT exportado com sucesso!');
+    }
+
+    function showToast(msg, isError=false) {
+      const t = document.getElementById('toast');
+      t.textContent = msg;
+      t.style.borderColor = isError ? 'var(--danger)' : 'var(--success)';
+      t.classList.add('show');
+      setTimeout(() => t.classList.remove('show'), 3000);
+    }
+
+    // Tentativa de carregamento automático
+    window.addEventListener('DOMContentLoaded', () => {
+      try {
+        const possiblePath = "/home/user/Documentos/Prog_06/Lotofaìcil.xlsx";
+        showMsg("Tentando carregar automaticamente...", "info");
+        fetch(possiblePath)
+          .then(res => {
+            if (!res.ok) throw new Error("Arquivo não encontrado no caminho fixo");
+            return res.arrayBuffer();
+          })
+          .then(data => {
+            const workbook = XLSX.read(new Uint8Array(data), { type: 'array' });
+            const sheet = workbook.Sheets[workbook.SheetNames[0]];
+            const json = XLSX.utils.sheet_to_json(sheet, { defval: null });
+            processExcelData(json);
+            showMsg("✅ Carregamento automático realizado.", "success");
+            hideSection('uploadCard');
+            setTimeout(() => {
+              showSection('statsCard');
+              setTimeout(() => showSection('potentialCard'), 300);
+              setTimeout(() => showSection('configCard'), 600);
+            }, 500);
+          })
+          .catch(err => {
+            console.warn("Fallback manual ativado:", err.message);
+            document.getElementById('autoLoadMsg').textContent = "Não foi possível acessar o caminho fixo. Selecione o arquivo abaixo:";
+            document.getElementById('autoLoadMsg').className = "status-msg warning";
+            showSection('uploadCard');
+          });
+      } catch (e) {
+        showSection('uploadCard');
+        showMsg("Erro ao tentar carregamento inicial. Selecione manualmente.", "error");
+      }
+    });
+  </script>
+</body>
+</html>
