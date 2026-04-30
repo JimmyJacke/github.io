@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#2563eb">
+    <title>🎙️ Transcritor Offline</title>
+    <style>
+        :root { --bg: #f0f2f5; --card: #fff; --primary: #2563eb; --success: #16a34a; --danger: #dc2626; --text: #1f2937; --warning: #f59e0b; }
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: system-ui, -apple-system, sans-serif; }
+        body { background: var(--bg); display: flex; justify-content: center; align-items: center; min-height: 100vh; padding: 20px; }
+        .container { background: var(--card); width: 100%; max-width: 540px; padding: 24px; border-radius: 16px; box-shadow: 0 10px 25px rgba(0,0,0,0.08); }
+        h1 { text-align: center; margin-bottom: 20px; font-size: 1.5rem; color: var(--text); }
+        .controls { display: flex; gap: 10px; margin-bottom: 12px; flex-wrap: wrap; }
+        select, button { padding: 12px; border-radius: 10px; border: 1px solid #d1d5db; font-size: 15px; transition: 0.2s; }
+        select { flex: 1; background: #fff; }
+        button { cursor: pointer; font-weight: 500; border: none; color: #fff; }
+        .btn-model { background: #6366f1; }
+        .btn-model:disabled { background: #9ca3af; cursor: not-allowed; }
+        .btn-record { flex: 1; background: var(--primary); }
+        .btn-record:disabled { background: #9ca3af; }
+        .btn-record.recording { background: var(--danger); }
+        .btn-permission { background: var(--warning); color: #1f2937; width: 100%; margin-bottom: 10px; display: none; }
+        .btn-permission:hover { filter: brightness(0.95); }
+        .status { text-align: center; margin: 10px 0; font-size: 14px; color: #4b5563; min-height: 20px; }
+        .status.error { color: var(--danger); font-weight: 500; }
+        .status.warning { color: var(--warning); font-weight: 500; }
+        textarea { width: 100%; height: 160px; padding: 12px; border: 1px solid #d1d5db; border-radius: 10px; font-size: 15px; line-height: 1.5; background: #f9fafb; resize: vertical; }
+        .btn-download { width: 100%; margin-top: 10px; padding: 12px; background: var(--success); display: none; }
+        .btn-download:hover { filter: brightness(0.9); }
+        .permission-help { font-size: 12px; color: #6b7280; margin-top: 8px; text-align: center; display: none; }
+        @media (max-width: 420px) { .controls { flex-direction: column; } button { width: 100%; } }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎙️ Transcritor de Áudio Offline</h1>
+        
+        <!-- Botão de verificação de permissão (aparece se necessário) -->
+        <button id="btnPermission" class="btn-permission">🔐 Verificar Permissão do Microfone</button>
+        
+        <div class="controls">
+            <select id="langSelect">
+                <option value="pt">🇧🇷 Português</option>
+                <option value="en">🇺🇸 English</option>
+            </select>
+            <button id="btnModel" class="btn-model">⏳ Baixar Modelo</button>
+        </div>
+        <button id="btnRecord" class="btn-record" disabled>🎤 Iniciar Gravação</button>
+        <div id="status" class="status">Carregue o modelo para começar. Funciona 100% offline após o 1º uso.</div>
+        <div id="permissionHelp" class="permission-help">
+            💡 <strong>Android:</strong> Se o microfone não funcionar, vá em:<br>
+            <code>Configurações → Apps → [Seu App] → Permissões → Microfone → Permitir</code>
+        </div>
+        
+        <textarea id="output" placeholder="A transcrição aparecerá aqui..." readonly></textarea>
+        <button id="btnDownload" class="btn-download">📥 Baixar Transcrição (.txt)</button>
+    </div>
+
+    <script type="module">
+        import { pipeline } from 'https://cdn.jsdelivr.net/npm/@xenova/transformers@2.17.2';
+        
+        let transcriber = null;
+        let mediaRecorder = null;
+        let audioChunks = [];
+        let isRecording = false;
+        let audioCtx = null;
+        let micPermissionGranted = false;
+
+        const els = {
+            btnModel: document.getElementById('btnModel'),
+            btnRecord: document.getElementById('btnRecord'),
+            btnPermission: document.getElementById('btnPermission'),
+            permissionHelp: document.getElementById('permissionHelp'),
+            langSelect: document.getElementById('langSelect'),
+            status: document.getElementById('status'),
+            output: document.getElementById('output'),
+            btnDownload: document.getElementById('btnDownload')
+        };
+
+        // 🔍 Verificar status da permissão do microfone (Android/Web)
+        async function checkMicPermission() {
+            try {
+                // Verifica se a API de permissões está disponível
+                if (navigator.permissions && navigator.permissions.query) {
+                    const result = await navigator.permissions.query({ name: 'microphone' });
+                    micPermissionGranted = (result.state === 'granted');
+                    
+                    if (result.state === 'denied' || result.state === 'prompt') {
+                        els.btnPermission.style.display = 'block';
+                        els.permissionHelp.style.display = 'block';
+                    }
+                    return micPermissionGranted;
+                }
+                return true; // Fallback: assume que o getUserMedia vai pedir
+            } catch (e) {
+                console.warn('Não foi possível verificar permissão:', e);
+                return true;
+            }        }
+
+        // 🔐 Solicitar permissão do microfone explicitamente
+        async function requestMicPermission() {
+            try {
+                els.status.textContent = '🔐 Solicitando acesso ao microfone...';
+                els.status.classList.remove('error', 'warning');
+                
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                // Se chegou aqui, a permissão foi concedida - libera os tracks
+                stream.getTracks().forEach(track => track.stop());
+                
+                micPermissionGranted = true;
+                els.btnPermission.style.display = 'none';
+                els.permissionHelp.style.display = 'none';
+                els.status.textContent = '✅ Microfone autorizado! Agora você pode gravar.';
+                els.status.classList.add('success');
+                
+                return true;
+            } catch (err) {
+                console.error('Erro ao solicitar microfone:', err);
+                
+                if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+                    els.status.textContent = '⛔ Permissão negada pelo usuário.';
+                    els.status.classList.add('error');
+                    els.permissionHelp.style.display = 'block';
+                } else if (err.name === 'NotFoundError') {
+                    els.status.textContent = '⛔ Nenhum microfone detectado no dispositivo.';
+                    els.status.classList.add('error');
+                } else {
+                    els.status.textContent = '⚠️ Erro: ' + err.message;
+                    els.status.classList.add('warning');
+                }
+                return false;
+            }
+        }
+
+        // 1. Carregar modelo Whisper Tiny
+        els.btnModel.addEventListener('click', async () => {
+            els.btnModel.disabled = true;
+            els.status.textContent = '📥 Baixando modelo (~40MB)... Aguarde.';
+            els.status.classList.remove('error', 'warning');
+            try {
+                transcriber = await pipeline('automatic-speech-recognition', 'Xenova/whisper-tiny', {
+                    quantized: 'q4',
+                    dtype: 'fp32'
+                });
+                els.btnModel.textContent = '✅ Modelo Pronto';
+                els.btnRecord.disabled = false;
+                                // Após carregar o modelo, verifica permissão do microfone
+                await checkMicPermission();
+                els.status.textContent = '🟢 Pronto! Funciona offline. Toque em "Gravar".';
+            } catch (e) {
+                els.status.textContent = '❌ Erro: ' + e.message;
+                els.status.classList.add('error');
+                els.btnModel.disabled = false;
+            }
+        });
+
+        // 🔘 Botão de verificação manual de permissão
+        els.btnPermission.addEventListener('click', async () => {
+            const granted = await requestMicPermission();
+            if (granted) {
+                els.btnRecord.disabled = false;
+            }
+        });
+
+        // 2. Controle de Gravação
+        els.btnRecord.addEventListener('click', async () => {
+            if (!isRecording) {
+                // Antes de gravar, garante que temos permissão
+                if (!micPermissionGranted) {
+                    const granted = await requestMicPermission();
+                    if (!granted) return;
+                }
+                await startRecording();
+            } else {
+                stopRecording();
+            }
+        });
+
+        async function startRecording() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ 
+                    audio: {
+                        echoCancellation: true,
+                        noiseSuppression: true,
+                        sampleRate: 16000
+                    } 
+                });
+                
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/webm' });
+                audioChunks = [];
+
+                mediaRecorder.ondataavailable = e => {
+                    if (e.data.size > 0) audioChunks.push(e.data);
+                };
+                                mediaRecorder.onstop = async () => {
+                    stream.getTracks().forEach(t => t.stop());
+                    await processAudio(new Blob(audioChunks, { type: 'audio/webm' }));
+                };
+
+                mediaRecorder.onerror = (e) => {
+                    console.error('Erro no MediaRecorder:', e.error);
+                    els.status.textContent = '❌ Erro na gravação: ' + e.error?.message;
+                    els.status.classList.add('error');
+                    stopRecording();
+                };
+
+                mediaRecorder.start();
+                isRecording = true;
+                els.btnRecord.textContent = '⏹️ Parar';
+                els.btnRecord.classList.add('recording');
+                els.status.textContent = '🎤 Ouvindo...';
+                els.output.value = '';
+                els.btnDownload.style.display = 'none';
+            } catch (err) {
+                console.error('Erro ao acessar microfone:', err);
+                
+                if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+                    els.status.textContent = '⛔ Permissão de microfone negada.';
+                    els.permissionHelp.style.display = 'block';
+                } else if (err.name === 'NotFoundError') {
+                    els.status.textContent = '⛔ Nenhum microfone encontrado.';
+                } else {
+                    els.status.textContent = '⚠️ Erro: ' + err.message;
+                }
+                els.status.classList.add('error');
+                isRecording = false;
+                els.btnRecord.textContent = '🎤 Iniciar Gravação';
+                els.btnRecord.classList.remove('recording');
+            }
+        }
+
+        function stopRecording() {
+            if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+                mediaRecorder.stop();
+            }
+            isRecording = false;
+            els.btnRecord.textContent = '🎤 Iniciar Gravação';
+            els.btnRecord.classList.remove('recording');
+            els.btnRecord.disabled = true;
+            els.status.textContent = '⏳ Processando áudio...';
+        }
+
+        // 3. Processamento de Áudio (Resample para 16kHz)
+        async function processAudio(blob) {            try {
+                const arrayBuffer = await blob.arrayBuffer();
+                const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
+                
+                // Resampling para 16kHz (exigido pelo Whisper)
+                const targetRate = 16000;
+                const offlineCtx = new OfflineAudioContext(1, audioBuffer.duration * targetRate, targetRate);
+                const source = offlineCtx.createBufferSource();
+                source.buffer = audioBuffer;
+                source.connect(offlineCtx.destination);
+                source.start();
+                const rendered = await offlineCtx.startRendering();
+                const float32Data = rendered.getChannelData(0);
+
+                // 4. Transcrição
+                const lang = els.langSelect.value;
+                const result = await transcriber(float32Data, {
+                    language: lang,
+                    task: 'transcribe'
+                });
+
+                els.output.value = result.text.trim();
+                els.status.textContent = '✅ Transcrição concluída!';
+                els.status.classList.remove('error', 'warning');
+                els.btnDownload.style.display = 'block';
+            } catch (e) {
+                console.error('Erro no processamento:', e);
+                els.status.textContent = '❌ Erro no processamento: ' + e.message;
+                els.status.classList.add('error');
+            } finally {
+                els.btnRecord.disabled = false;
+            }
+        }
+
+        // 5. Download do arquivo .txt
+        els.btnDownload.addEventListener('click', () => {
+            const text = els.output.value.trim();
+            if (!text) return;
+            const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            const lang = els.langSelect.value === 'pt' ? 'pt' : 'en';
+            const date = new Date().toISOString().slice(0, 10);
+            a.href = url;
+            a.download = `transcricao_${lang}_${date}.txt`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        });
+        // 🚀 Inicialização: verifica suporte a APIs necessárias
+        window.addEventListener('DOMContentLoaded', async () => {
+            // Verifica se o navegador suporta gravação de áudio
+            if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                els.status.textContent = '⛔ Seu navegador não suporta gravação de áudio.';
+                els.status.classList.add('error');
+                els.btnRecord.disabled = true;
+                return;
+            }
+            
+            // Detecta Android para mostrar dicas específicas
+            const isAndroid = /Android/i.test(navigator.userAgent);
+            if (isAndroid) {
+                els.permissionHelp.innerHTML = `
+                    💡 <strong>Android:</strong> Se o microfone não funcionar:<br>
+                    1. Vá em <code>Configurações → Apps</code><br>
+                    2. Encontre este app/navegador<br>
+                    3. Toque em <code>Permissões → Microfone → Permitir</code>
+                `;
+            }
+            
+            // Verifica permissão ao carregar (opcional, não bloqueia)
+            await checkMicPermission();
+        });
+    </script>
+</body>
+</html>
