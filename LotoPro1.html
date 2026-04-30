@@ -1,1 +1,385 @@
+<!DOCTYPE html>
+<html lang="pt-BR" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Lotofácil Predictor Pro</title>
+  <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+  <style>
+    :root {
+      --bg: #f8fafc; --surface: #ffffff; --text: #0f172a; --text-muted: #64748b;
+      --primary: #6366f1; --primary-hover: #4f46e5; --primary-light: #e0e7ff;
+      --border: #e2e8f0; --success: #10b981; --danger: #ef4444;
+      --radius: 16px; --shadow: 0 4px 16px rgba(0,0,0,0.08);
+      --font: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+    }
+    [data-theme="dark"] {
+      --bg: #0b1120; --surface: #151c2c; --text: #f1f5f9; --text-muted: #94a3b8;
+      --primary: #818cf8; --primary-hover: #6366f1; --primary-light: #1e293b;
+      --border: #334155; --shadow: 0 4px 16px rgba(0,0,0,0.4);
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: var(--font); background: var(--bg); color: var(--text); min-height: 100vh; transition: background 0.3s, color 0.3s; padding: 1rem; }
+    header { background: var(--surface); padding: 1rem; border-radius: var(--radius); display: flex; justify-content: space-between; align-items: center; box-shadow: var(--shadow); margin-bottom: 1rem; }
+    .logo { font-weight: 800; font-size: 1.2rem; background: linear-gradient(90deg, var(--primary), #8b5cf6); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+    .theme-btn { background: none; border: 2px solid var(--border); border-radius: 50%; width: 44px; height: 44px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.2s; color: var(--text); }
+    .theme-btn:hover { border-color: var(--primary); transform: scale(1.1); }
+    .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 1.5rem; margin-bottom: 1rem; box-shadow: var(--shadow); animation: slideIn 0.4s ease-out; }
+    @keyframes slideIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+    .grid-2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1rem; margin-top: 1rem; }
+    .ball-grid { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; margin-top: 0.5rem; }
+    .ball { width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 0.9rem; color: white; box-shadow: 0 2px 5px rgba(0,0,0,0.2); }
+    .ball.hot { background: linear-gradient(135deg, #ef4444, #f97316); }
+    .ball.cold { background: linear-gradient(135deg, #3b82f6, #06b6d4); }
+    .potential-section { background: linear-gradient(135deg, var(--primary), #8b5cf6); color: white; border: none; }
+    .potential-ball { background: rgba(255,255,255,0.2); backdrop-filter: blur(5px); border: 1px solid rgba(255,255,255,0.3); border-radius: 12px; padding: 0.6rem; text-align: center; }
+    .ball-num { font-size: 1.6rem; font-weight: 800; display: block; }
+    .ball-prob { font-size: 0.7rem; opacity: 0.9; }
+    .seq-list { display: flex; flex-direction: column; gap: 0.8rem; max-height: 60vh; overflow-y: auto; padding-right: 5px; }
+    .seq-item { background: var(--bg); padding: 1rem; border-radius: 12px; border: 1px solid var(--border); }
+    .seq-header { display: flex; justify-content: space-between; margin-bottom: 0.5rem; font-size: 0.85rem; color: var(--text-muted); }
+    .seq-num { width: 32px; height: 32px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 0.85rem; font-weight: 700; color: white; margin: 2px; }
+    .seq-num.fixed { background: linear-gradient(135deg, #8b5cf6, #a78bfa); border: 2px solid var(--surface); }
+    .seq-num.hot { background: linear-gradient(135deg, #ef4444, #f87171); }
+    .seq-num.warm { background: linear-gradient(135deg, #f97316, #fb923c); }
+    .seq-num.med { background: linear-gradient(135deg, #eab308, #facc15); color: #422006; }
+    .seq-num.cool { background: linear-gradient(135deg, #3b82f6, #60a5fa); }
+    .seq-num.cold { background: linear-gradient(135deg, #64748b, #94a3b8); }
+    .file-drop { border: 2px dashed var(--border); border-radius: var(--radius); padding: 2rem; text-align: center; cursor: pointer; transition: all 0.2s; margin-top: 0.5rem; }
+    .file-drop:hover { border-color: var(--primary); background: var(--primary-light); }
+    .status-msg { font-size: 0.85rem; margin-top: 0.5rem; min-height: 20px; font-weight: 600; }
+    .status-msg.success { color: var(--success); }
+    .status-msg.error { color: var(--danger); }
+    .status-msg.info { color: var(--primary); }
+    input, select, button { width: 100%; padding: 0.85rem; border-radius: 12px; border: 1px solid var(--border); background: var(--bg); color: var(--text); font-size: 1rem; margin-bottom: 0.8rem; outline: none; }
+    input:focus, select:focus { border-color: var(--primary); box-shadow: 0 0 0 3px var(--primary-light); }
+    button { background: var(--primary); color: white; border: none; font-weight: 600; cursor: pointer; margin-top: 0.5rem; transition: background 0.2s; }
+    button:hover { background: var(--primary-hover); }
+    button.secondary { background: transparent; border: 1px solid var(--border); color: var(--text); }
+    button.secondary:hover { border-color: var(--primary); color: var(--primary); }
+    .hidden { display: none !important; }
+    @media (max-width: 480px) { .ball { width: 30px; height: 30px; font-size: 0.8rem; } h2 { font-size: 1.1rem; } }
+  </style>
+</head>
+<body>
 
+  <header>
+    <div class="logo">🎲 Lotofácil Predictor Pro</div>
+    <button class="theme-btn" id="themeToggle" aria-label="Alternar Tema">
+      <svg id="sunIcon" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
+      <svg id="moonIcon" class="hidden" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+    </button>
+  </header>
+
+  <main>
+    <div id="globalError" class="status-msg error hidden" style="text-align: center; margin-bottom: 10px;"></div>
+
+    <section class="card" id="uploadSection">
+      <h2>📂 Carregar Histórico</h2>
+      <label class="file-drop" id="dropZone">
+        <input type="file" id="fileInput" accept=".xlsx,.xls" hidden>
+        <p style="margin-bottom: 5px;">Arraste o Excel aqui ou <span style="color:var(--primary); text-decoration:underline;">clique para selecionar</span></p>
+        <small style="color:var(--text-muted);">Formato: Concurso, Bola1 a Bola15</small>
+      </label>
+      <div id="fileStatus" class="status-msg info">Aguardando arquivo...</div>
+    </section>
+
+    <section class="card hidden" id="statsSection">
+      <h2>📊 Análise Estatística</h2>
+      <div class="grid-2">
+        <div style="background:var(--bg); padding:1rem; border-radius:12px; text-align:center;">
+          <h3 style="font-size:0.8rem; color:var(--text-muted); text-transform:uppercase;">🔥 Top 7 Frequentes</h3>
+          <div class="ball-grid" id="top7"></div>
+        </div>
+        <div style="background:var(--bg); padding:1rem; border-radius:12px; text-align:center;">
+          <h3 style="font-size:0.8rem; color:var(--text-muted); text-transform:uppercase;">❄️ Top 7 Menos Frequentes</h3>
+          <div class="ball-grid" id="bottom7"></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="card potential-section hidden" id="potentialSection">
+      <h2>🎯 Top 10 Potenciais</h2>
+      <div class="grid-2" id="potentialGrid" style="grid-template-columns: repeat(auto-fit, minmax(80px, 1fr));"></div>
+      <p style="font-size:0.8rem; opacity:0.9; margin-top:0.8rem; text-align:center;">Baseado em frequência + suavização probabilística</p>
+    </section>
+
+    <section class="card hidden" id="configSection">
+      <h2>⚙️ Configuração</h2>
+      <label>Quantidade de Jogos</label>
+      <input type="number" id="seqCount" value="5" min="1" max="50">
+      <label>Números por Jogo</label>
+      <input type="number" id="totalNums" value="15" min="5" max="20">
+      <label>Números Fixos</label>
+      <input type="number" id="fixedCount" value="3" min="0" max="14">
+      <label>Estratégia de Fixos</label>
+      <select id="fixType">
+        <option value="most">Mais Frequentes</option>
+        <option value="least">Menos Frequentes</option>
+      </select>
+      <button id="previewBtn">👁️ Visualizar Prévia</button>
+    </section>
+
+    <section class="card hidden" id="previewSection">
+      <h2>✅ Prévia</h2>
+      <div class="preview-box" style="background:var(--bg); padding:1rem; border-radius:12px; margin-bottom:1rem; text-align:center;">
+        <p style="color:var(--text-muted); margin-bottom:0.5rem;">Números base para fixos:</p>
+        <div class="ball-grid" id="previewPool"></div>
+        <p id="previewInfo" style="margin-top:0.8rem; font-size:0.9rem; color:var(--primary); font-weight:600;"></p>
+      </div>
+      <div style="display:flex; gap:10px;">
+        <button id="confirmBtn" style="flex:2;">🚀 Gerar Jogos</button>
+        <button id="cancelBtn" class="secondary" style="flex:1;">↩️ Voltar</button>
+      </div>
+    </section>
+
+    <section class="card hidden" id="resultsSection">
+      <h2>🎲 Jogos Gerados</h2>
+      <div class="seq-list" id="resultsList"></div>
+      <div style="display:flex; gap:10px; margin-top:1rem;">
+        <button class="secondary" onclick="exportTXT()" style="flex:1;">📄 Salvar TXT</button>
+        <button id="generateAgainBtn" style="flex:2;">🔄 Gerar Novamente</button>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    // --- Estado Global ---
+    let allSequences = new Set();
+    let frequencies = {};
+    let probabilities = {};
+    let ranks = {};
+    let generatedGames = [];
+    let pendingConfig = null;
+
+    // --- UI Helpers ---
+    function show(id) {
+      const el = document.getElementById(id);
+      el.classList.remove('hidden');
+      setTimeout(() => el.scrollIntoView({ behavior: 'smooth', block: 'start' }), 100);
+    }
+    function hide(id) { document.getElementById(id).classList.add('hidden'); }
+    function setStatus(msg, type) {
+      const el = document.getElementById('fileStatus');
+      el.textContent = msg;
+      el.className = `status-msg ${type}`;
+    }
+
+    // --- Tema ---
+    const html = document.documentElement;
+    const toggleTheme = () => {
+      const newTheme = html.getAttribute('data-theme') === 'light' ? 'dark' : 'light';
+      html.setAttribute('data-theme', newTheme);
+      localStorage.setItem('theme', newTheme);
+      document.getElementById('sunIcon').classList.toggle('hidden', newTheme === 'dark');
+      document.getElementById('moonIcon').classList.toggle('hidden', newTheme === 'light');
+    };
+    const savedTheme = localStorage.getItem('theme') || 'light';
+    html.setAttribute('data-theme', savedTheme);
+    document.getElementById('sunIcon').classList.toggle('hidden', savedTheme === 'dark');
+    document.getElementById('moonIcon').classList.toggle('hidden', savedTheme === 'light');
+    document.getElementById('themeToggle').addEventListener('click', toggleTheme);
+
+    // --- Upload ---
+    const dropZone = document.getElementById('dropZone');
+    const fileInput = document.getElementById('fileInput');
+    
+    dropZone.addEventListener('click', () => fileInput.click());
+    dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.style.borderColor = 'var(--primary)'; });
+    dropZone.addEventListener('dragleave', () => dropZone.style.borderColor = '');
+    dropZone.addEventListener('drop', e => { e.preventDefault(); dropZone.style.borderColor = ''; if(e.dataTransfer.files[0]) handleFile(e.dataTransfer.files[0]); });
+    fileInput.addEventListener('change', e => e.target.files[0] && handleFile(e.target.files[0]));
+
+    function handleFile(file) {
+      setStatus('Processando arquivo...', 'info');
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        try {
+          if (!window.XLSX) throw new Error('Biblioteca de leitura não carregou. Verifique sua internet.');
+          
+          const data = new Uint8Array(e.target.result);
+          const wb = XLSX.read(data, { type: 'array' });
+          const ws = wb.Sheets[wb.SheetNames[0]];
+          const raw = XLSX.utils.sheet_to_json(ws, { header: 1, defval: null });
+
+          let parsedCount = 0;
+          frequencies = {};
+          for(let i=1; i<=25; i++) frequencies[i] = 0;
+
+          for (let r = 0; r < raw.length; r++) {
+            const row = raw[r];
+            // Verifica se a linha começa com um número válido (Concurso)
+            if (!row || row.length < 16 || isNaN(Number(row[0]))) continue;
+            
+            const nums = [];
+            for(let c = 1; c <= 15; c++) {
+              const v = Number(row[c]);
+              if(!isNaN(v) && v >= 1 && v <= 25) nums.push(v);
+            }
+            
+            if(nums.length === 15) {
+              nums.sort((a,b) => a-b);
+              allSequences.add(nums.join(','));
+              nums.forEach(n => frequencies[n]++);
+              parsedCount++;
+            }
+          }
+
+          if(parsedCount === 0) throw new Error('Nenhum concurso válido encontrado. Verifique o formato.');
+          
+          calculateProbabilities();
+          renderStats();
+          setStatus(`✅ ${parsedCount} concursos carregados com sucesso!`, 'success');
+          show('statsSection');
+          setTimeout(() => show('potentialSection'), 200);
+          setTimeout(() => show('configSection'), 400);
+        } catch (err) {
+          console.error(err);
+          setStatus(`❌ Erro: ${err.message}`, 'error');
+          document.getElementById('globalError').textContent = `Erro crítico: ${err.message}. Recarregue a página e tente novamente.`;
+          document.getElementById('globalError').classList.remove('hidden');
+        }
+      };
+      reader.readAsArrayBuffer(file);
+    }
+
+    function calculateProbabilities() {
+      const total = Object.values(frequencies).reduce((a,b) => a+b, 0);
+      probabilities = {};
+      for(let i=1; i<=25; i++) {
+        probabilities[i] = (frequencies[i] + 0.5) / (total + 12.5); // Suavização
+      }
+      // Ranks (1 = mais frequente, 25 = menos)
+      const sorted = Object.entries(frequencies).sort((a,b) => b[1] - a[1]);
+      sorted.forEach(([num], idx) => ranks[Number(num)] = idx + 1);
+    }
+
+    function renderStats() {
+      const sorted = Object.entries(frequencies).sort((a,b) => b[1] - a[1]);
+      const top7 = sorted.slice(0,7).map(x => Number(x[0])).sort((a,b)=>a-b);
+      const bot7 = sorted.slice(-7).map(x => Number(x[0])).sort((a,b)=>a-b);
+      
+      document.getElementById('top7').innerHTML = top7.map(n => `<div class="ball hot">${n.toString().padStart(2,'0')}</div>`).join('');
+      document.getElementById('bottom7').innerHTML = bot7.map(n => `<div class="ball cold">${n.toString().padStart(2,'0')}</div>`).join('');
+
+      const top10 = Object.entries(probabilities).sort((a,b) => b[1] - a[1]).slice(0,10).map(x => Number(x[0])).sort((a,b)=>a-b);
+      document.getElementById('potentialGrid').innerHTML = top10.map(n => `
+        <div class="potential-ball">
+          <span class="ball-num">${n.toString().padStart(2,'0')}</span>
+          <span class="ball-prob">${(probabilities[n]*100).toFixed(1)}%</span>
+        </div>
+      `).join('');
+    }
+
+    // --- Config & Preview ---
+    document.getElementById('previewBtn').addEventListener('click', () => {
+      const sc = parseInt(document.getElementById('seqCount').value);
+      const tn = parseInt(document.getElementById('totalNums').value);
+      const fc = parseInt(document.getElementById('fixedCount').value);
+      const ft = document.getElementById('fixType').value;
+
+      if(fc >= tn) return alert('Números fixos devem ser menores que o total.');
+      if(sc < 1) return alert('Informe ao menos 1 jogo.');
+
+      pendingConfig = { sc, tn, fc, ft };
+      const sorted = Object.entries(frequencies).sort((a,b) => ft === 'most' ? b[1]-a[1] : a[1]-b[1]);
+      const pool = sorted.slice(0, 7).map(x => Number(x[0])).sort((a,b)=>a-b);
+
+      document.getElementById('previewPool').innerHTML = pool.map(n => `<div class="ball ${ft==='most'?'hot':'cold'}">${n.toString().padStart(2,'0')}</div>`).join('');
+      document.getElementById('previewInfo').textContent = `Sortear ${fc} fixos deste grupo + ${tn-fc} por probabilidade`;
+      hide('configSection');
+      show('previewSection');
+    });
+
+    document.getElementById('cancelBtn').addEventListener('click', () => { hide('previewSection'); show('configSection'); });
+
+    // --- Geração ---
+    document.getElementById('confirmBtn').addEventListener('click', () => {
+      if(!pendingConfig) return;
+      const { sc, tn, fc, ft } = pendingConfig;
+      const sorted = Object.entries(frequencies).sort((a,b) => ft === 'most' ? b[1]-a[1] : a[1]-b[1]);
+      const pool = sorted.slice(0, 7).map(x => Number(x[0]));
+      
+      generatedGames = [];
+      const seen = new Set();
+      const maxAtt = sc * 2000;
+      let att = 0;
+
+      while(generatedGames.length < sc && att < maxAtt) {
+        att++;
+        // Fixos
+        const fixed = weightedSample(pool, pool.map(n=>probabilities[n]), fc);
+        // Restantes
+        const avail = Array.from({length:25},(_,i)=>i+1).filter(n => !fixed.includes(n));
+        const rest = weightedSample(avail, avail.map(n=>probabilities[n]), tn - fc);
+        const seq = [...fixed, ...rest].sort((a,b)=>a-b);
+        const key = seq.join(',');
+        
+        if(!allSequences.has(key) && !seen.has(key)) {
+          generatedGames.push({ nums: seq, fixed });
+          seen.add(key);
+        }
+      }
+
+      renderResults();
+      hide('previewSection');
+      show('resultsSection');
+      alert(`✅ ${generatedGames.length} jogos únicos gerados!`);
+    });
+
+    function weightedSample(items, weights, k) {
+      const i = [...items], w = [...weights], res = [];
+      for(let j=0; j<k; j++) {
+        const s = w.reduce((a,b)=>a+b,0);
+        let r = Math.random() * s, c = 0, idx = 0;
+        for(let x=0; x<w.length; x++) { c += w[x]; if(r < c) { idx = x; break; } }
+        res.push(i[idx]); i.splice(idx, 1); w.splice(idx, 1);
+      }
+      return res;
+    }
+
+    function renderResults() {
+      const list = document.getElementById('resultsList');
+      list.innerHTML = '';
+      generatedGames.forEach((g, i) => {
+        const html = g.nums.map(n => {
+          const isFixed = g.fixed.includes(n);
+          let cls = 'cold';
+          const r = ranks[n] || 20;
+          if(isFixed) cls = 'fixed';
+          else if(r <= 5) cls = 'hot';
+          else if(r <= 10) cls = 'warm';
+          else if(r <= 15) cls = 'med';
+          else if(r <= 20) cls = 'cool';
+          return `<span class="seq-num ${cls}">${n.toString().padStart(2,'0')}</span>`;
+        }).join('');
+        
+        list.innerHTML += `
+          <div class="seq-item">
+            <div class="seq-header">
+              <span>Jogo ${(i+1).toString().padStart(2,'0')}</span>
+              <span>${g.fixed.length} Fixos</span>
+            </div>
+            <div>${html}</div>
+          </div>`;
+      });
+    }
+
+    document.getElementById('generateAgainBtn').addEventListener('click', () => { hide('resultsSection'); show('configSection'); });
+
+    function exportTXT() {
+      if(!generatedGames.length) return alert('Gere jogos primeiro.');
+      const txt = generatedGames.map((g,i) => `Jogo ${i+1}: ${g.nums.join(' - ')}`).join('\n');
+      const blob = new Blob([txt], {type:'text/plain;charset=utf-8'});
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = `lotofacil_jogos_${Date.now()}.txt`;
+      a.click();
+      URL.revokeObjectURL(a.href);
+    }
+
+    // Garante que a UI inicialize
+    window.addEventListener('DOMContentLoaded', () => setStatus('Pronto para carregar o Excel...', 'info'));
+  </script>
+</body>
+</html>
