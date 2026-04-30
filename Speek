@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🎙️ Transcritor Offline</title>
+    <style>
+        :root { --bg: #f0f2f5; --card: #fff; --primary: #2563eb; --success: #16a34a; --danger: #dc2626; --text: #1f2937; }
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: system-ui, -apple-system, sans-serif; }
+        body { background: var(--bg); display: flex; justify-content: center; align-items: center; min-height: 100vh; padding: 20px; }
+        .container { background: var(--card); width: 100%; max-width: 540px; padding: 24px; border-radius: 16px; box-shadow: 0 10px 25px rgba(0,0,0,0.08); }
+        h1 { text-align: center; margin-bottom: 20px; font-size: 1.5rem; color: var(--text); }
+        .controls { display: flex; gap: 10px; margin-bottom: 12px; flex-wrap: wrap; }
+        select, button { padding: 12px; border-radius: 10px; border: 1px solid #d1d5db; font-size: 15px; transition: 0.2s; }
+        select { flex: 1; background: #fff; }
+        button { cursor: pointer; font-weight: 500; border: none; color: #fff; }
+        .btn-model { background: #6366f1; }
+        .btn-model:disabled { background: #9ca3af; cursor: not-allowed; }
+        .btn-record { flex: 1; background: var(--primary); }
+        .btn-record:disabled { background: #9ca3af; }
+        .btn-record.recording { background: var(--danger); }
+        .status { text-align: center; margin: 10px 0; font-size: 14px; color: #4b5563; min-height: 20px; }
+        .status.error { color: var(--danger); font-weight: 500; }
+        textarea { width: 100%; height: 160px; padding: 12px; border: 1px solid #d1d5db; border-radius: 10px; font-size: 15px; line-height: 1.5; background: #f9fafb; resize: vertical; }
+        .btn-download { width: 100%; margin-top: 10px; padding: 12px; background: var(--success); display: none; }
+        .btn-download:hover { filter: brightness(0.9); }
+        @media (max-width: 420px) { .controls { flex-direction: column; } button { width: 100%; } }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎙️ Transcritor de Áudio Offline</h1>
+        
+        <div class="controls">
+            <select id="langSelect">
+                <option value="pt">🇧🇷 Português</option>
+                <option value="en">🇺🇸 English</option>
+            </select>
+            <button id="btnModel" class="btn-model">⏳ Baixar Modelo</button>
+        </div>
+        <button id="btnRecord" class="btn-record" disabled>🎤 Iniciar Gravação</button>
+
+        <div id="status" class="status">Carregue o modelo para começar. Funciona 100% offline após o 1º uso.</div>
+        
+        <textarea id="output" placeholder="A transcrição aparecerá aqui..." readonly></textarea>
+        <button id="btnDownload" class="btn-download">📥 Baixar Transcrição (.txt)</button>
+    </div>
+
+    <script type="module">
+        import { pipeline } from 'https://cdn.jsdelivr.net/npm/@xenova/transformers@2.17.2';
+        let transcriber = null;
+        let mediaRecorder = null;
+        let audioChunks = [];
+        let isRecording = false;
+        let audioCtx = null;
+
+        const els = {
+            btnModel: document.getElementById('btnModel'),
+            btnRecord: document.getElementById('btnRecord'),
+            langSelect: document.getElementById('langSelect'),
+            status: document.getElementById('status'),
+            output: document.getElementById('output'),
+            btnDownload: document.getElementById('btnDownload')
+        };
+
+        // 1. Carregar modelo Whisper Tiny
+        els.btnModel.addEventListener('click', async () => {
+            els.btnModel.disabled = true;
+            els.status.textContent = '📥 Baixando modelo (~40MB)... Aguarde.';
+            els.status.classList.remove('error');
+            try {
+                transcriber = await pipeline('automatic-speech-recognition', 'Xenova/whisper-tiny', {
+                    quantized: 'q4',
+                    dtype: 'fp32'
+                });
+                els.btnModel.textContent = '✅ Modelo Pronto';
+                els.btnRecord.disabled = false;
+                els.status.textContent = '🟢 Pronto! Funciona offline. Toque em "Gravar".';
+            } catch (e) {
+                els.status.textContent = '❌ Erro: ' + e.message;
+                els.status.classList.add('error');
+                els.btnModel.disabled = false;
+            }
+        });
+
+        // 2. Controle de Gravação
+        els.btnRecord.addEventListener('click', async () => {
+            if (!isRecording) {
+                await startRecording();
+            } else {
+                stopRecording();
+            }
+        });
+
+        async function startRecording() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                mediaRecorder = new MediaRecorder(stream);                audioChunks = [];
+
+                mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
+                mediaRecorder.onstop = async () => {
+                    stream.getTracks().forEach(t => t.stop());
+                    await processAudio(new Blob(audioChunks));
+                };
+
+                mediaRecorder.start();
+                isRecording = true;
+                els.btnRecord.textContent = '⏹️ Parar';
+                els.btnRecord.classList.add('recording');
+                els.status.textContent = '🎤 Ouvindo...';
+                els.output.value = '';
+                els.btnDownload.style.display = 'none';
+            } catch (err) {
+                els.status.textContent = '⛔ Permissão de microfone negada ou indisponível.';
+                els.status.classList.add('error');
+            }
+        }
+
+        function stopRecording() {
+            if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+                mediaRecorder.stop();
+            }
+            isRecording = false;
+            els.btnRecord.textContent = '🎤 Iniciar Gravação';
+            els.btnRecord.classList.remove('recording');
+            els.btnRecord.disabled = true;
+            els.status.textContent = '⏳ Processando áudio...';
+        }
+
+        // 3. Processamento de Áudio (Resample para 16kHz)
+        async function processAudio(blob) {
+            try {
+                const arrayBuffer = await blob.arrayBuffer();
+                const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
+                
+                // Resampling para 16kHz (exigido pelo Whisper)
+                const targetRate = 16000;
+                const offlineCtx = new OfflineAudioContext(1, audioBuffer.duration * targetRate, targetRate);
+                const source = offlineCtx.createBufferSource();
+                source.buffer = audioBuffer;
+                source.connect(offlineCtx.destination);
+                source.start();
+                const rendered = await offlineCtx.startRendering();
+                const float32Data = rendered.getChannelData(0);
+
+                // 4. Transcrição
+                const lang = els.langSelect.value;                const result = await transcriber(float32Data, {
+                    language: lang,
+                    task: 'transcribe'
+                });
+
+                els.output.value = result.text.trim();
+                els.status.textContent = '✅ Transcrição concluída!';
+                els.btnDownload.style.display = 'block';
+            } catch (e) {
+                els.status.textContent = '❌ Erro no processamento: ' + e.message;
+                els.status.classList.add('error');
+            } finally {
+                els.btnRecord.disabled = false;
+            }
+        }
+
+        // 5. Download do arquivo .txt
+        els.btnDownload.addEventListener('click', () => {
+            const text = els.output.value.trim();
+            if (!text) return;
+            const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            const lang = els.langSelect.value === 'pt' ? 'pt' : 'en';
+            const date = new Date().toISOString().slice(0, 10);
+            a.href = url;
+            a.download = `transcricao_${lang}_${date}.txt`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        });
+    </script>
+</body>
+</html>
