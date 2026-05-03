@@ -2,384 +2,463 @@
 <html lang="pt-BR" data-theme="light">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>Lotofácil Predictor Pro</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>Lotofácil Analyzer & Predictor</title>
   <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
   <style>
     :root {
       --bg: #f8fafc; --surface: #ffffff; --text: #0f172a; --text-muted: #64748b;
       --primary: #6366f1; --primary-hover: #4f46e5; --primary-light: #e0e7ff;
-      --border: #e2e8f0; --success: #10b981; --danger: #ef4444;
-      --radius: 16px; --shadow: 0 4px 16px rgba(0,0,0,0.08);
+      --border: #e2e8f0; --success: #10b981; --warning: #f59e0b; --danger: #ef4444;
+      --radius: 16px; --shadow: 0 4px 16px rgba(0,0,0,0.08); --shadow-hover: 0 8px 24px rgba(0,0,0,0.12);
       --font: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
     }
     [data-theme="dark"] {
       --bg: #0b1120; --surface: #151c2c; --text: #f1f5f9; --text-muted: #94a3b8;
       --primary: #818cf8; --primary-hover: #6366f1; --primary-light: #1e293b;
-      --border: #334155; --shadow: 0 4px 16px rgba(0,0,0,0.4);
+      --border: #334155; --shadow: 0 4px 16px rgba(0,0,0,0.4); --shadow-hover: 0 8px 24px rgba(0,0,0,0.6);
     }
     * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { font-family: var(--font); background: var(--bg); color: var(--text); min-height: 100vh; transition: background 0.3s, color 0.3s; padding: 1rem; }
-    header { background: var(--surface); padding: 1rem; border-radius: var(--radius); display: flex; justify-content: space-between; align-items: center; box-shadow: var(--shadow); margin-bottom: 1rem; }
-    .logo { font-weight: 800; font-size: 1.2rem; background: linear-gradient(90deg, var(--primary), #8b5cf6); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
-    .theme-btn { background: none; border: 2px solid var(--border); border-radius: 50%; width: 44px; height: 44px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.2s; color: var(--text); }
-    .theme-btn:hover { border-color: var(--primary); transform: scale(1.1); }
-    .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 1.5rem; margin-bottom: 1rem; box-shadow: var(--shadow); animation: slideIn 0.4s ease-out; }
-    @keyframes slideIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-    .grid-2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1rem; margin-top: 1rem; }
-    .ball-grid { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; margin-top: 0.5rem; }
-    .ball { width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 0.9rem; color: white; box-shadow: 0 2px 5px rgba(0,0,0,0.2); }
-    .ball.hot { background: linear-gradient(135deg, #ef4444, #f97316); }
-    .ball.cold { background: linear-gradient(135deg, #3b82f6, #06b6d4); }
-    .potential-section { background: linear-gradient(135deg, var(--primary), #8b5cf6); color: white; border: none; }
-    .potential-ball { background: rgba(255,255,255,0.2); backdrop-filter: blur(5px); border: 1px solid rgba(255,255,255,0.3); border-radius: 12px; padding: 0.6rem; text-align: center; }
-    .ball-num { font-size: 1.6rem; font-weight: 800; display: block; }
-    .ball-prob { font-size: 0.7rem; opacity: 0.9; }
-    .seq-list { display: flex; flex-direction: column; gap: 0.8rem; max-height: 60vh; overflow-y: auto; padding-right: 5px; }
-    .seq-item { background: var(--bg); padding: 1rem; border-radius: 12px; border: 1px solid var(--border); }
-    .seq-header { display: flex; justify-content: space-between; margin-bottom: 0.5rem; font-size: 0.85rem; color: var(--text-muted); }
-    .seq-num { width: 32px; height: 32px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 0.85rem; font-weight: 700; color: white; margin: 2px; }
-    .seq-num.fixed { background: linear-gradient(135deg, #8b5cf6, #a78bfa); border: 2px solid var(--surface); }
+    body {
+      font-family: var(--font); background: var(--bg); color: var(--text);
+      min-height: 100dvh; display: flex; flex-direction: column;
+      transition: background 0.3s, color 0.3s;
+      padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+    }
+    header {
+      background: var(--surface); padding: 1rem; display: flex; justify-content: space-between; align-items: center;
+      border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 100;
+      backdrop-filter: blur(10px); background-color: color-mix(in srgb, var(--surface) 85%, transparent);
+    }
+    .logo { font-weight: 800; font-size: 1.15rem; letter-spacing: -0.5px; background: linear-gradient(90deg, var(--primary), #8b5cf6); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+    .theme-btn {
+      background: none; border: 2px solid var(--border); border-radius: 50%; width: 40px; height: 40px;
+      cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.2s; color: var(--text);
+    }
+    .theme-btn:hover { border-color: var(--primary); transform: rotate(15deg); }
+    main { flex: 1; padding: 1rem; max-width: 640px; margin: 0 auto; width: 100%; }
+    .card {
+      background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+      padding: 1.25rem; margin-bottom: 1rem; box-shadow: var(--shadow); transition: box-shadow 0.2s, transform 0.2s;
+    }
+    .card:hover { box-shadow: var(--shadow-hover); transform: translateY(-2px); }
+    .card h2 { font-size: 1.1rem; margin-bottom: 0.75rem; color: var(--primary); }
+    .hidden { display: none !important; }
+    label { display: block; margin-bottom: 0.4rem; font-weight: 500; font-size: 0.9rem; }
+    input, select, button {
+      width: 100%; padding: 0.9rem; border-radius: 12px; border: 1px solid var(--border);
+      background: var(--bg); color: var(--text); font-size: 1rem; margin-bottom: 1rem; transition: border 0.2s, box-shadow 0.2s;
+    }
+    input:focus, select:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px var(--primary-light); }
+    button { background: var(--primary); color: white; border: none; font-weight: 600; cursor: pointer; margin-top: 0.5rem; }
+    button:hover { background: var(--primary-hover); }
+    button:disabled { opacity: 0.5; cursor: not-allowed; }
+    button.secondary { background: transparent; border: 1px solid var(--border); color: var(--text); }
+    button.secondary:hover { border-color: var(--primary); color: var(--primary); background: var(--primary-light); }
+    .file-drop {
+      border: 2px dashed var(--border); border-radius: var(--radius); padding: 2rem; text-align: center; cursor: pointer; transition: all 0.2s;
+    }
+    .file-drop:hover { border-color: var(--primary); background: var(--primary-light); }
+    .file-drop input { display: none; }
+    .stats-grid, .preview-grid, .seq-nums { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; }
+    .stat-ball, .seq-num {
+      width: 34px; height: 34px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
+      font-weight: 800; font-size: 0.85rem; color: white; box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+    }
+    .stat-ball.hot { background: linear-gradient(135deg, #ef4444, #f97316); }
+    .stat-ball.cold { background: linear-gradient(135deg, #3b82f6, #06b6d4); }
+    [data-theme="dark"] .stat-ball.hot { background: linear-gradient(135deg, #dc2626, #ea580c); }
+    [data-theme="dark"] .stat-ball.cold { background: linear-gradient(135deg, #2563eb, #0891b2); }
+    
+    .preview-box { background: var(--bg); padding: 1rem; border-radius: 12px; margin-bottom: 1rem; border: 1px dashed var(--border); }
+    .preview-box p { font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.5rem; }
+    
+    .potential-section {
+      background: linear-gradient(135deg, var(--primary), #8b5cf6); color: white; border: none; position: relative; overflow: hidden; padding: 1.5rem;
+    }
+    [data-theme="dark"] .potential-section { background: linear-gradient(135deg, #4f46e5, #7c3aed); }
+    .potential-section::before {
+      content: ''; position: absolute; top: -50%; left: -50%; width: 200%; height: 200%;
+      background: radial-gradient(circle, rgba(255,255,255,0.12) 0%, transparent 65%); animation: rotate 12s linear infinite;
+    }
+    @keyframes rotate { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+    .potential-section h2 { color: white; text-shadow: 0 2px 6px rgba(0,0,0,0.2); margin-bottom: 1rem; }
+    .potential-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; position: relative; z-index: 1; }
+    .potential-ball {
+      background: rgba(255,255,255,0.18); backdrop-filter: blur(6px); border: 1px solid rgba(255,255,255,0.4);
+      border-radius: 14px; padding: 0.6rem 0.2rem; text-align: center; transition: transform 0.2s, background 0.2s; box-shadow: 0 4px 10px rgba(0,0,0,0.15);
+    }
+    .potential-ball:hover { transform: translateY(-4px) scale(1.03); background: rgba(255,255,255,0.28); }
+    .ball-num { display: block; font-size: 1.5rem; font-weight: 800; text-shadow: 0 1px 2px rgba(0,0,0,0.2); }
+    .ball-prob { display: block; font-size: 0.6rem; opacity: 0.9; margin-top: 2px; font-weight: 500; }
+    .potential-note { font-size: 0.8rem; opacity: 0.9; margin-top: 0.75rem; text-align: center; position: relative; z-index: 1; }
+    
+    .seq-list { display: flex; flex-direction: column; gap: 0.8rem; max-height: 60dvh; overflow-y: auto; padding-right: 4px; }
+    .seq-item { background: var(--bg); padding: 0.8rem; border-radius: 12px; border: 1px solid var(--border); }
+    .seq-header { display: flex; justify-content: space-between; margin-bottom: 0.5rem; font-size: 0.8rem; font-weight: 600; color: var(--text-muted); }
+    .seq-num:hover { transform: scale(1.15); transition: transform 0.2s; }
+    .seq-num.fixed { background: linear-gradient(135deg, #8b5cf6, #a78bfa); box-shadow: 0 0 8px rgba(139, 92, 246, 0.4); border: 2px solid var(--surface); z-index: 1; }
     .seq-num.hot { background: linear-gradient(135deg, #ef4444, #f87171); }
     .seq-num.warm { background: linear-gradient(135deg, #f97316, #fb923c); }
     .seq-num.med { background: linear-gradient(135deg, #eab308, #facc15); color: #422006; }
     .seq-num.cool { background: linear-gradient(135deg, #3b82f6, #60a5fa); }
     .seq-num.cold { background: linear-gradient(135deg, #64748b, #94a3b8); }
-    .file-drop { border: 2px dashed var(--border); border-radius: var(--radius); padding: 2rem; text-align: center; cursor: pointer; transition: all 0.2s; margin-top: 0.5rem; }
-    .file-drop:hover { border-color: var(--primary); background: var(--primary-light); }
-    .status-msg { font-size: 0.85rem; margin-top: 0.5rem; min-height: 20px; font-weight: 600; }
-    .status-msg.success { color: var(--success); }
-    .status-msg.error { color: var(--danger); }
-    .status-msg.info { color: var(--primary); }
-    input, select, button { width: 100%; padding: 0.85rem; border-radius: 12px; border: 1px solid var(--border); background: var(--bg); color: var(--text); font-size: 1rem; margin-bottom: 0.8rem; outline: none; }
-    input:focus, select:focus { border-color: var(--primary); box-shadow: 0 0 0 3px var(--primary-light); }
-    button { background: var(--primary); color: white; border: none; font-weight: 600; cursor: pointer; margin-top: 0.5rem; transition: background 0.2s; }
-    button:hover { background: var(--primary-hover); }
-    button.secondary { background: transparent; border: 1px solid var(--border); color: var(--text); }
-    button.secondary:hover { border-color: var(--primary); color: var(--primary); }
-    .hidden { display: none !important; }
-    @media (max-width: 480px) { .ball { width: 30px; height: 30px; font-size: 0.8rem; } h2 { font-size: 1.1rem; } }
+    
+    .export-group { display: flex; gap: 0.75rem; margin-top: 1rem; }
+    .export-group button { flex: 1; margin: 0; }
+    .toast {
+      position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(20px);
+      background: var(--surface); color: var(--text); padding: 0.9rem 1.3rem;
+      border-radius: 30px; box-shadow: var(--shadow-hover); border: 1px solid var(--border);
+      opacity: 0; pointer-events: none; transition: all 0.3s; z-index: 999;
+      font-size: 0.9rem; text-align: center; max-width: 90%;
+    }
+    .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 10px; }
+    @media (max-width: 480px) {
+      .stats-grid { grid-template-columns: 1fr; }
+      .potential-grid { grid-template-columns: repeat(5, 1fr); gap: 8px; }
+      .ball-num { font-size: 1.3rem; }
+      .stat-ball { width: 30px; height: 30px; font-size: 0.8rem; }
+      h2 { font-size: 1rem; }
+    }
   </style>
 </head>
 <body>
-
   <header>
-    <div class="logo">🎲 Lotofácil Predictor Pro</div>
-    <button class="theme-btn" id="themeToggle" aria-label="Alternar Tema">
-      <svg id="sunIcon" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
-      <svg id="moonIcon" class="hidden" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+    <div class="logo">🎲 Lotofácil Predictor</div>
+    <button class="theme-btn" id="themeToggle" aria-label="Alternar tema">
+      <svg id="sunIcon" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+      <svg id="moonIcon" class="hidden" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
     </button>
   </header>
 
   <main>
-    <div id="globalError" class="status-msg error hidden" style="text-align: center; margin-bottom: 10px;"></div>
-
-    <section class="card" id="uploadSection">
+    <section class="card" id="uploadCard">
       <h2>📂 Carregar Histórico</h2>
       <label class="file-drop" id="dropZone">
-        <input type="file" id="fileInput" accept=".xlsx,.xls" hidden>
-        <p style="margin-bottom: 5px;">Arraste o Excel aqui ou <span style="color:var(--primary); text-decoration:underline;">clique para selecionar</span></p>
-        <small style="color:var(--text-muted);">Formato: Concurso, Bola1 a Bola15</small>
+        <input type="file" id="fileInput" accept=".xlsx,.xls">
+        <p>Arraste o Excel aqui ou <span style="color:var(--primary); text-decoration:underline;">clique para selecionar</span></p>
+        <small style="color:var(--text-muted); display:block; margin-top:8px;">Formato: colunas "Bola1", "Bola2"...</small>
       </label>
-      <div id="fileStatus" class="status-msg info">Aguardando arquivo...</div>
+      <div id="fileStatus" style="margin-top:0.5rem; font-weight:600;"></div>
     </section>
 
-    <section class="card hidden" id="statsSection">
+    <section class="card hidden" id="statsCard">
       <h2>📊 Análise Estatística</h2>
-      <div class="grid-2">
-        <div style="background:var(--bg); padding:1rem; border-radius:12px; text-align:center;">
-          <h3 style="font-size:0.8rem; color:var(--text-muted); text-transform:uppercase;">🔥 Top 7 Frequentes</h3>
-          <div class="ball-grid" id="top7"></div>
-        </div>
-        <div style="background:var(--bg); padding:1rem; border-radius:12px; text-align:center;">
-          <h3 style="font-size:0.8rem; color:var(--text-muted); text-transform:uppercase;">❄️ Top 7 Menos Frequentes</h3>
-          <div class="ball-grid" id="bottom7"></div>
-        </div>
+      <div class="stats-grid">
+        <div class="stat-box hot"><h3>🔥 Top 7 Mais Frequentes</h3><div class="stat-grid" id="top7"></div></div>
+        <div class="stat-box cold"><h3>❄️ Top 7 Menos Frequentes</h3><div class="stat-grid" id="bottom7"></div></div>
       </div>
     </section>
 
-    <section class="card potential-section hidden" id="potentialSection">
-      <h2>🎯 Top 10 Potenciais</h2>
-      <div class="grid-2" id="potentialGrid" style="grid-template-columns: repeat(auto-fit, minmax(80px, 1fr));"></div>
-      <p style="font-size:0.8rem; opacity:0.9; margin-top:0.8rem; text-align:center;">Baseado em frequência + suavização probabilística</p>
+    <section class="card potential-section hidden" id="potentialCard">
+      <h2>🎯 Top 10 Números com Maior Potencial</h2>
+      <div class="potential-grid" id="potentialGrid"></div>
+      <p class="potential-note">Ordenados por frequência e probabilidade ponderada.</p>
     </section>
 
-    <section class="card hidden" id="configSection">
-      <h2>⚙️ Configuração</h2>
-      <label>Quantidade de Jogos</label>
-      <input type="number" id="seqCount" value="5" min="1" max="50">
-      <label>Números por Jogo</label>
-      <input type="number" id="totalNums" value="15" min="5" max="20">
-      <label>Números Fixos</label>
-      <input type="number" id="fixedCount" value="3" min="0" max="14">
-      <label>Estratégia de Fixos</label>
+    <section class="card hidden" id="configCard">
+      <h2>⚙️ Configuração da Geração</h2>
+      <label>Quantidade de Sequências</label>
+      <input type="number" id="seqCount" value="5" min="1" max="100">
+      <label>Total de Números por Sequência</label>
+      <input type="number" id="totalNums" value="15" min="5" max="25">
+      <label>Números Fixos por Sequência</label>
+      <input type="number" id="fixedCount" value="3" min="0" max="24">
+      <label>Tipo de Fixos</label>
       <select id="fixType">
         <option value="most">Mais Frequentes</option>
         <option value="least">Menos Frequentes</option>
       </select>
-      <button id="previewBtn">👁️ Visualizar Prévia</button>
+      <button id="generateBtn">👁️ Visualizar Prévia e Gerar</button>
     </section>
 
-    <section class="card hidden" id="previewSection">
-      <h2>✅ Prévia</h2>
-      <div class="preview-box" style="background:var(--bg); padding:1rem; border-radius:12px; margin-bottom:1rem; text-align:center;">
-        <p style="color:var(--text-muted); margin-bottom:0.5rem;">Números base para fixos:</p>
-        <div class="ball-grid" id="previewPool"></div>
-        <p id="previewInfo" style="margin-top:0.8rem; font-size:0.9rem; color:var(--primary); font-weight:600;"></p>
+    <section class="card hidden" id="previewCard">
+      <h2>✅ Prévia da Configuração</h2>
+      <div class="preview-box">
+        <p><strong>Pool de números base:</strong></p>
+        <div class="preview-grid" id="previewGrid"></div>
+        <p id="previewInfo" style="margin-top:0.8rem; margin-bottom:0;"></p>
       </div>
-      <div style="display:flex; gap:10px;">
-        <button id="confirmBtn" style="flex:2;">🚀 Gerar Jogos</button>
-        <button id="cancelBtn" class="secondary" style="flex:1;">↩️ Voltar</button>
+      <p style="font-size:0.85rem; color:var(--text-muted); margin-bottom:1rem;">
+        Cada jogo terá a quantidade de números fixos solicitada, sorteados aleatoriamente <em>dentre este pool</em>. 
+        Os demais serão completados por probabilidade. Deseja prosseguir?
+      </p>
+      <div style="display:flex; gap:0.75rem;">
+        <button id="confirmGenBtn" style="flex:2;">🚀 Confirmar e Gerar</button>
+        <button id="cancelGenBtn" class="secondary" style="flex:1;">↩️ Voltar</button>
       </div>
     </section>
 
-    <section class="card hidden" id="resultsSection">
-      <h2>🎲 Jogos Gerados</h2>
-      <div class="seq-list" id="resultsList"></div>
-      <div style="display:flex; gap:10px; margin-top:1rem;">
-        <button class="secondary" onclick="exportTXT()" style="flex:1;">📄 Salvar TXT</button>
-        <button id="generateAgainBtn" style="flex:2;">🔄 Gerar Novamente</button>
+    <section class="card hidden" id="resultsCard">
+      <h2>🎲 Sequências Geradas</h2>
+      <div class="seq-list" id="seqList"></div>
+      <div class="export-group">
+        <button class="secondary" onclick="exportData('txt')">📄 Salvar em TXT</button>
       </div>
+      <button id="generateAgainBtn" style="margin-top: 1rem; width: 100%;">🔄 Gerar Novamente</button>
     </section>
   </main>
 
+  <div class="toast" id="toast"></div>
+
   <script>
-    // --- Estado Global ---
-    let allSequences = new Set();
+    const html = document.documentElement;
+    const sun = document.getElementById('sunIcon');
+    const moon = document.getElementById('moonIcon');
+    function setTheme(theme) {
+      html.setAttribute('data-theme', theme);
+      localStorage.setItem('theme', theme);
+      sun.classList.toggle('hidden', theme === 'dark');
+      moon.classList.toggle('hidden', theme === 'light');
+    }
+    setTheme(localStorage.getItem('theme') || 'light');
+    document.getElementById('themeToggle').addEventListener('click', () => setTheme(html.getAttribute('data-theme') === 'light' ? 'dark' : 'light'));
+
+    let existingSequences = new Set();
     let frequencies = {};
     let probabilities = {};
-    let ranks = {};
-    let generatedGames = [];
-    let pendingConfig = null;
+    let generatedSequences = [];
+    let pendingParams = null;
 
-    // --- UI Helpers ---
-    function show(id) {
-      const el = document.getElementById(id);
-      el.classList.remove('hidden');
-      setTimeout(() => el.scrollIntoView({ behavior: 'smooth', block: 'start' }), 100);
-    }
-    function hide(id) { document.getElementById(id).classList.add('hidden'); }
-    function setStatus(msg, type) {
-      const el = document.getElementById('fileStatus');
-      el.textContent = msg;
-      el.className = `status-msg ${type}`;
-    }
-
-    // --- Tema ---
-    const html = document.documentElement;
-    const toggleTheme = () => {
-      const newTheme = html.getAttribute('data-theme') === 'light' ? 'dark' : 'light';
-      html.setAttribute('data-theme', newTheme);
-      localStorage.setItem('theme', newTheme);
-      document.getElementById('sunIcon').classList.toggle('hidden', newTheme === 'dark');
-      document.getElementById('moonIcon').classList.toggle('hidden', newTheme === 'light');
-    };
-    const savedTheme = localStorage.getItem('theme') || 'light';
-    html.setAttribute('data-theme', savedTheme);
-    document.getElementById('sunIcon').classList.toggle('hidden', savedTheme === 'dark');
-    document.getElementById('moonIcon').classList.toggle('hidden', savedTheme === 'light');
-    document.getElementById('themeToggle').addEventListener('click', toggleTheme);
-
-    // --- Upload ---
-    const dropZone = document.getElementById('dropZone');
     const fileInput = document.getElementById('fileInput');
-    
+    const dropZone = document.getElementById('dropZone');
+    const fileStatus = document.getElementById('fileStatus');
+
     dropZone.addEventListener('click', () => fileInput.click());
-    dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.style.borderColor = 'var(--primary)'; });
-    dropZone.addEventListener('dragleave', () => dropZone.style.borderColor = '');
-    dropZone.addEventListener('drop', e => { e.preventDefault(); dropZone.style.borderColor = ''; if(e.dataTransfer.files[0]) handleFile(e.dataTransfer.files[0]); });
-    fileInput.addEventListener('change', e => e.target.files[0] && handleFile(e.target.files[0]));
+    dropZone.addEventListener('dragover', e => e.preventDefault());
+    dropZone.addEventListener('drop', e => { e.preventDefault(); if(e.dataTransfer.files.length) handleFile(e.dataTransfer.files[0]); });
+    fileInput.addEventListener('change', e => e.target.files.length && handleFile(e.target.files[0]));
 
     function handleFile(file) {
-      setStatus('Processando arquivo...', 'info');
+      fileStatus.textContent = 'Lendo arquivo...';
       const reader = new FileReader();
       reader.onload = (e) => {
         try {
-          if (!window.XLSX) throw new Error('Biblioteca de leitura não carregou. Verifique sua internet.');
-          
           const data = new Uint8Array(e.target.result);
-          const wb = XLSX.read(data, { type: 'array' });
-          const ws = wb.Sheets[wb.SheetNames[0]];
-          const raw = XLSX.utils.sheet_to_json(ws, { header: 1, defval: null });
-
-          let parsedCount = 0;
-          frequencies = {};
-          for(let i=1; i<=25; i++) frequencies[i] = 0;
-
-          for (let r = 0; r < raw.length; r++) {
-            const row = raw[r];
-            // Verifica se a linha começa com um número válido (Concurso)
-            if (!row || row.length < 16 || isNaN(Number(row[0]))) continue;
-            
-            const nums = [];
-            for(let c = 1; c <= 15; c++) {
-              const v = Number(row[c]);
-              if(!isNaN(v) && v >= 1 && v <= 25) nums.push(v);
-            }
-            
-            if(nums.length === 15) {
-              nums.sort((a,b) => a-b);
-              allSequences.add(nums.join(','));
-              nums.forEach(n => frequencies[n]++);
-              parsedCount++;
-            }
-          }
-
-          if(parsedCount === 0) throw new Error('Nenhum concurso válido encontrado. Verifique o formato.');
-          
-          calculateProbabilities();
-          renderStats();
-          setStatus(`✅ ${parsedCount} concursos carregados com sucesso!`, 'success');
-          show('statsSection');
-          setTimeout(() => show('potentialSection'), 200);
-          setTimeout(() => show('configSection'), 400);
+          const workbook = XLSX.read(data, { type: 'array' });
+          const sheet = workbook.Sheets[workbook.SheetNames[0]];
+          const json = XLSX.utils.sheet_to_json(sheet, { defval: null });
+          processExcelData(json);
+          fileStatus.textContent = `✅ ${existingSequences.size} sequências carregadas.`;
+          showToast('Arquivo processado com sucesso!');
+          document.getElementById('potentialCard').classList.remove('hidden');
+          document.getElementById('statsCard').classList.remove('hidden');
+          document.getElementById('configCard').classList.remove('hidden');
         } catch (err) {
+          fileStatus.textContent = '❌ Erro ao ler arquivo.';
+          showToast('Formato inválido. Verifique as colunas.', true);
           console.error(err);
-          setStatus(`❌ Erro: ${err.message}`, 'error');
-          document.getElementById('globalError').textContent = `Erro crítico: ${err.message}. Recarregue a página e tente novamente.`;
-          document.getElementById('globalError').classList.remove('hidden');
         }
       };
       reader.readAsArrayBuffer(file);
     }
 
-    function calculateProbabilities() {
-      const total = Object.values(frequencies).reduce((a,b) => a+b, 0);
-      probabilities = {};
-      for(let i=1; i<=25; i++) {
-        probabilities[i] = (frequencies[i] + 0.5) / (total + 12.5); // Suavização
-      }
-      // Ranks (1 = mais frequente, 25 = menos)
-      const sorted = Object.entries(frequencies).sort((a,b) => b[1] - a[1]);
-      sorted.forEach(([num], idx) => ranks[Number(num)] = idx + 1);
-    }
-
-    function renderStats() {
-      const sorted = Object.entries(frequencies).sort((a,b) => b[1] - a[1]);
-      const top7 = sorted.slice(0,7).map(x => Number(x[0])).sort((a,b)=>a-b);
-      const bot7 = sorted.slice(-7).map(x => Number(x[0])).sort((a,b)=>a-b);
-      
-      document.getElementById('top7').innerHTML = top7.map(n => `<div class="ball hot">${n.toString().padStart(2,'0')}</div>`).join('');
-      document.getElementById('bottom7').innerHTML = bot7.map(n => `<div class="ball cold">${n.toString().padStart(2,'0')}</div>`).join('');
-
-      const top10 = Object.entries(probabilities).sort((a,b) => b[1] - a[1]).slice(0,10).map(x => Number(x[0])).sort((a,b)=>a-b);
-      document.getElementById('potentialGrid').innerHTML = top10.map(n => `
-        <div class="potential-ball">
-          <span class="ball-num">${n.toString().padStart(2,'0')}</span>
-          <span class="ball-prob">${(probabilities[n]*100).toFixed(1)}%</span>
-        </div>
-      `).join('');
-    }
-
-    // --- Config & Preview ---
-    document.getElementById('previewBtn').addEventListener('click', () => {
-      const sc = parseInt(document.getElementById('seqCount').value);
-      const tn = parseInt(document.getElementById('totalNums').value);
-      const fc = parseInt(document.getElementById('fixedCount').value);
-      const ft = document.getElementById('fixType').value;
-
-      if(fc >= tn) return alert('Números fixos devem ser menores que o total.');
-      if(sc < 1) return alert('Informe ao menos 1 jogo.');
-
-      pendingConfig = { sc, tn, fc, ft };
-      const sorted = Object.entries(frequencies).sort((a,b) => ft === 'most' ? b[1]-a[1] : a[1]-b[1]);
-      const pool = sorted.slice(0, 7).map(x => Number(x[0])).sort((a,b)=>a-b);
-
-      document.getElementById('previewPool').innerHTML = pool.map(n => `<div class="ball ${ft==='most'?'hot':'cold'}">${n.toString().padStart(2,'0')}</div>`).join('');
-      document.getElementById('previewInfo').textContent = `Sortear ${fc} fixos deste grupo + ${tn-fc} por probabilidade`;
-      hide('configSection');
-      show('previewSection');
-    });
-
-    document.getElementById('cancelBtn').addEventListener('click', () => { hide('previewSection'); show('configSection'); });
-
-    // --- Geração ---
-    document.getElementById('confirmBtn').addEventListener('click', () => {
-      if(!pendingConfig) return;
-      const { sc, tn, fc, ft } = pendingConfig;
-      const sorted = Object.entries(frequencies).sort((a,b) => ft === 'most' ? b[1]-a[1] : a[1]-b[1]);
-      const pool = sorted.slice(0, 7).map(x => Number(x[0]));
-      
-      generatedGames = [];
-      const seen = new Set();
-      const maxAtt = sc * 2000;
-      let att = 0;
-
-      while(generatedGames.length < sc && att < maxAtt) {
-        att++;
-        // Fixos
-        const fixed = weightedSample(pool, pool.map(n=>probabilities[n]), fc);
-        // Restantes
-        const avail = Array.from({length:25},(_,i)=>i+1).filter(n => !fixed.includes(n));
-        const rest = weightedSample(avail, avail.map(n=>probabilities[n]), tn - fc);
-        const seq = [...fixed, ...rest].sort((a,b)=>a-b);
-        const key = seq.join(',');
-        
-        if(!allSequences.has(key) && !seen.has(key)) {
-          generatedGames.push({ nums: seq, fixed });
-          seen.add(key);
-        }
-      }
-
-      renderResults();
-      hide('previewSection');
-      show('resultsSection');
-      alert(`✅ ${generatedGames.length} jogos únicos gerados!`);
-    });
-
-    function weightedSample(items, weights, k) {
-      const i = [...items], w = [...weights], res = [];
-      for(let j=0; j<k; j++) {
-        const s = w.reduce((a,b)=>a+b,0);
-        let r = Math.random() * s, c = 0, idx = 0;
-        for(let x=0; x<w.length; x++) { c += w[x]; if(r < c) { idx = x; break; } }
-        res.push(i[idx]); i.splice(idx, 1); w.splice(idx, 1);
-      }
-      return res;
-    }
-
-    function renderResults() {
-      const list = document.getElementById('resultsList');
-      list.innerHTML = '';
-      generatedGames.forEach((g, i) => {
-        const html = g.nums.map(n => {
-          const isFixed = g.fixed.includes(n);
-          let cls = 'cold';
-          const r = ranks[n] || 20;
-          if(isFixed) cls = 'fixed';
-          else if(r <= 5) cls = 'hot';
-          else if(r <= 10) cls = 'warm';
-          else if(r <= 15) cls = 'med';
-          else if(r <= 20) cls = 'cool';
-          return `<span class="seq-num ${cls}">${n.toString().padStart(2,'0')}</span>`;
-        }).join('');
-        
-        list.innerHTML += `
-          <div class="seq-item">
-            <div class="seq-header">
-              <span>Jogo ${(i+1).toString().padStart(2,'0')}</span>
-              <span>${g.fixed.length} Fixos</span>
-            </div>
-            <div>${html}</div>
-          </div>`;
+    function renderStatBalls(containerId, numbers, type) {
+      const container = document.getElementById(containerId);
+      container.innerHTML = '';
+      numbers.forEach(num => {
+        const ball = document.createElement('div');
+        ball.className = `stat-ball ${type}`;
+        ball.textContent = num.toString().padStart(2, '0');
+        container.appendChild(ball);
       });
     }
 
-    document.getElementById('generateAgainBtn').addEventListener('click', () => { hide('resultsSection'); show('configSection'); });
+    function processExcelData(rows) {
+      existingSequences.clear();
+      frequencies = {};
+      for(let i=1; i<=25; i++) frequencies[i] = 0;
+      
+      const allNums = [];
+      rows.forEach(row => {
+        const nums = [];
+        for (let i = 1; i <= 25; i++) {
+          const val = row[`Bola${i}`] || row[`bola${i}`] || row[`b${i}`];
+          if (val !== null && val !== undefined) nums.push(Number(val));
+        }
+        if (nums.length >= 15) {
+          nums.sort((a,b) => a-b);
+          existingSequences.add(nums.join(','));
+          allNums.push(...nums);
+          nums.forEach(n => frequencies[n]++);
+        }
+      });
 
-    function exportTXT() {
-      if(!generatedGames.length) return alert('Gere jogos primeiro.');
-      const txt = generatedGames.map((g,i) => `Jogo ${i+1}: ${g.nums.join(' - ')}`).join('\n');
-      const blob = new Blob([txt], {type:'text/plain;charset=utf-8'});
-      const a = document.createElement('a');
-      a.href = URL.createObjectURL(blob);
-      a.download = `lotofacil_jogos_${Date.now()}.txt`;
-      a.click();
-      URL.revokeObjectURL(a.href);
+      const total = Object.values(frequencies).reduce((a,b)=>a+b, 0);
+      probabilities = {};
+      for(let i=1; i<=25; i++) probabilities[i] = (frequencies[i] + 0.1) / (total + 2.5);
+
+      const sorted = Object.entries(frequencies).sort((a,b) => b[1] - a[1]);
+      const top7 = sorted.slice(0, 7).map(x => Number(x[0])).sort((a,b) => a - b);
+      const bottom7 = sorted.slice(-7).map(x => Number(x[0])).sort((a,b) => a - b);
+      
+      renderStatBalls('top7', top7, 'hot');
+      renderStatBalls('bottom7', bottom7, 'cold');
+
+      const top10Probs = Object.entries(probabilities).sort((a,b) => b[1] - a[1]).slice(0,10).map(x => Number(x[0])).sort((a,b) => a - b);
+      const potentialGrid = document.getElementById('potentialGrid');
+      potentialGrid.innerHTML = '';
+      top10Probs.forEach(num => {
+        const ball = document.createElement('div');
+        ball.className = 'potential-ball';
+        ball.innerHTML = `<span class="ball-num">${num.toString().padStart(2,'0')}</span><span class="ball-prob">${(probabilities[num]*100).toFixed(1)}%</span>`;
+        potentialGrid.appendChild(ball);
+      });
     }
 
-    // Garante que a UI inicialize
-    window.addEventListener('DOMContentLoaded', () => setStatus('Pronto para carregar o Excel...', 'info'));
+    document.getElementById('generateBtn').addEventListener('click', () => {
+      const seqCount = parseInt(document.getElementById('seqCount').value);
+      const totalNums = parseInt(document.getElementById('totalNums').value);
+      const fixedCount = parseInt(document.getElementById('fixedCount').value);
+      const fixType = document.getElementById('fixType').value;
+
+      if (fixedCount >= totalNums) return showToast('Números fixos devem ser menores que o total.', true);
+      if (seqCount < 1) return showToast('Informe ao menos 1 sequência.', true);
+
+      pendingParams = { seqCount, totalNums, fixedCount, fixType };
+
+      const sorted = Object.entries(frequencies).sort((a,b) => fixType === 'most' ? b[1] - a[1] : a[1] - b[1]);
+      const pool = sorted.slice(0, 7).map(x => Number(x[0])).sort((a,b) => a - b);
+
+      const grid = document.getElementById('previewGrid');
+      grid.innerHTML = '';
+      pool.forEach(num => {
+        const ball = document.createElement('div');
+        ball.className = `stat-ball ${fixType === 'most' ? 'hot' : 'cold'}`;
+        ball.textContent = num.toString().padStart(2, '0');
+        grid.appendChild(ball);
+      });
+
+      document.getElementById('previewInfo').textContent = 
+        `Serão sorteados ${pendingParams.fixedCount} fixos deste grupo. Os ${pendingParams.totalNums - pendingParams.fixedCount} restantes serão preenchidos por probabilidade.`;
+
+      document.getElementById('configCard').classList.add('hidden');
+      document.getElementById('previewCard').classList.remove('hidden');
+    });
+
+    document.getElementById('confirmGenBtn').addEventListener('click', () => {
+      if (!pendingParams) return;
+      executeGeneration(pendingParams);
+      document.getElementById('previewCard').classList.add('hidden');
+      document.getElementById('resultsCard').classList.remove('hidden');
+      showToast(`Geradas ${generatedSequences.length} sequências únicas.`);
+    });
+
+    document.getElementById('cancelGenBtn').addEventListener('click', () => {
+      document.getElementById('previewCard').classList.add('hidden');
+      document.getElementById('configCard').classList.remove('hidden');
+      pendingParams = null;
+    });
+
+    // 🔥 NOVO: Botão para gerar novamente
+    document.getElementById('generateAgainBtn').addEventListener('click', () => {
+      document.getElementById('resultsCard').classList.add('hidden');
+      document.getElementById('configCard').classList.remove('hidden');
+      document.getElementById('configCard').scrollIntoView({ behavior: 'smooth', block: 'start' });
+      showToast('Voltando à configuração. Ajuste os dados ou gere novamente!');
+    });
+
+    function weightedSample(items, weights, count) {
+      if (count <= 0) return [];
+      let tempItems = [...items], tempWeights = [...weights];
+      let selected = [];
+      while (selected.length < count) {
+        let sum = tempWeights.reduce((a,b)=>a+b,0);
+        let rand = Math.random() * sum;
+        let cumulative = 0, idx = 0;
+        for (let i=0; i<tempWeights.length; i++) {
+          cumulative += tempWeights[i];
+          if (rand < cumulative) { idx = i; break; }
+        }
+        selected.push(tempItems[idx]);
+        tempItems.splice(idx, 1);
+        tempWeights.splice(idx, 1);
+      }
+      return selected;
+    }
+
+    function executeGeneration(params) {
+      const sorted = Object.entries(frequencies).sort((a,b) => params.fixType === 'most' ? b[1] - a[1] : a[1] - b[1]);
+      const pool = sorted.slice(0, 7).map(x => Number(x[0]));
+      
+      generatedSequences = [];
+      const generatedSet = new Set();
+      const remaining = params.totalNums - params.fixedCount;
+      const allNums = Array.from({length:25},(_,i)=>i+1);
+      const maxAttempts = params.seqCount * 500;
+      let attempts = 0;
+
+      while (generatedSequences.length < params.seqCount && attempts < maxAttempts) {
+        attempts++;
+        let fixed = weightedSample(pool, pool.map(n=>probabilities[n]), params.fixedCount);
+        let available = allNums.filter(n => !fixed.includes(n));
+        let availProbs = available.map(n => probabilities[n]);
+        
+        let others = remaining > 0 ? weightedSample(available, availProbs, remaining) : [];
+        let seq = [...fixed, ...others].sort((a,b)=>a-b);
+        let seqStr = seq.join(',');
+
+        if (!existingSequences.has(seqStr) && !generatedSet.has(seqStr)) {
+          generatedSequences.push({ numbers: seq, fixed: [...fixed].sort((a,b)=>a-b) });
+          generatedSet.add(seqStr);
+        }
+      }
+      renderResults();
+    }
+
+    function getNumberClass(num, fixedList) {
+      if (fixedList.includes(num)) return 'fixed';
+      const sorted = Object.entries(frequencies).sort((a,b) => b[1] - a[1]);
+      const rank = sorted.findIndex(x => Number(x[0]) === num);
+      if (rank < 5) return 'hot';
+      if (rank < 10) return 'warm';
+      if (rank < 15) return 'med';
+      if (rank < 20) return 'cool';
+      return 'cold';
+    }
+
+    function renderResults() {
+      const list = document.getElementById('seqList');
+      list.innerHTML = '';
+      generatedSequences.forEach((item, i) => {
+        const div = document.createElement('div');
+        div.className = 'seq-item';
+        const numsHtml = item.numbers.map(n => {
+          const cls = getNumberClass(n, item.fixed);
+          return `<span class="seq-num ${cls}">${n.toString().padStart(2,'0')}</span>`;
+        }).join('');
+        div.innerHTML = `
+          <div class="seq-header"><span>Jogo ${(i+1).toString().padStart(3,'0')}</span><span>${item.fixed.length > 0 ? `${item.fixed.length} Fixos` : ''}</span></div>
+          <div class="seq-nums">${numsHtml}</div>`;
+        list.appendChild(div);
+      });
+    }
+
+    function exportData(type) {
+      if (!generatedSequences.length) return showToast('Gere sequências antes de exportar.', true);
+      const timestamp = new Date().toISOString().slice(0,19).replace(/:/g,'-');
+      const txt = generatedSequences.map((item, i) => `Sequência ${(i+1).toString().padStart(3,'0')}: ${item.numbers.map(n=>n.toString().padStart(2,'0')).join(' - ')}`).join('\n');
+      const blob = new Blob([txt], {type:'text/plain;charset=utf-8'});
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `sequencias_geradas_${timestamp}.txt`;
+      a.click();
+      URL.revokeObjectURL(url);
+      showToast('Arquivo TXT exportado com sucesso!');
+    }
+
+    function showToast(msg, isError=false) {
+      const t = document.getElementById('toast');
+      t.textContent = msg;
+      t.style.borderColor = isError ? 'var(--danger)' : 'var(--success)';
+      t.classList.add('show');
+      setTimeout(() => t.classList.remove('show'), 3000);
+    }
   </script>
 </body>
 </html>
