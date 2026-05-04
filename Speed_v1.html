@@ -4,324 +4,157 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <meta name="theme-color" content="#2563eb">
-    
-    <!-- CSP restrito para segurança local -->
-    <meta http-equiv="Content-Security-Policy" 
-          content="default-src 'self' 'unsafe-inline' 'unsafe-eval' data: blob:; 
-                   script-src 'self' 'unsafe-inline' 'unsafe-eval'; 
-                   connect-src 'self' blob:; 
-                   media-src 'self' blob:;">
-    
-    <title>🎙️ Transcritor Offline</title>
+    <title>🎙️ Transcritor de Voz</title>
     <style>
-        /* [Mantenha seu CSS original aqui - mesmo da versão anterior] */
-        :root { --bg: #f0f2f5; --card: #fff; --primary: #2563eb; --success: #16a34a; --danger: #dc2626; --text: #1f2937; --warning: #f59e0b; }
+        :root { --bg: #f0f2f5; --card: #fff; --primary: #2563eb; --success: #16a34a; --danger: #dc2626; --text: #1f2937; }
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: system-ui, -apple-system, sans-serif; }
         body { background: var(--bg); display: flex; justify-content: center; align-items: center; min-height: 100vh; padding: 20px; }
         .container { background: var(--card); width: 100%; max-width: 540px; padding: 24px; border-radius: 16px; box-shadow: 0 10px 25px rgba(0,0,0,0.08); }
         h1 { text-align: center; margin-bottom: 20px; font-size: 1.5rem; color: var(--text); }
-        .controls { display: flex; gap: 10px; margin-bottom: 12px; flex-wrap: wrap; }
-        select, button { padding: 12px; border-radius: 10px; border: 1px solid #d1d5db; font-size: 15px; transition: 0.2s; }
-        select { flex: 1; background: #fff; }
-        button { cursor: pointer; font-weight: 500; border: none; color: #fff; }
-        .btn-model { background: #6366f1; }
-        .btn-model:disabled { background: #9ca3af; cursor: not-allowed; }
-        .btn-record { flex: 1; background: var(--primary); }
-        .btn-record:disabled { background: #9ca3af; }
+        .controls { display: flex; gap: 10px; margin-bottom: 12px; }
+        select { flex: 1; padding: 12px; border-radius: 10px; border: 1px solid #d1d5db; font-size: 15px; background: #fff; }
+        button { padding: 12px; border-radius: 10px; border: none; cursor: pointer; font-weight: 500; transition: 0.2s; color: #fff; width: 100%; }
+        .btn-record { background: var(--primary); }
         .btn-record.recording { background: var(--danger); }
-        .btn-permission { background: var(--warning); color: #1f2937; width: 100%; margin-bottom: 10px; display: none; }
+        .btn-record:disabled { background: #9ca3af; cursor: not-allowed; }
         .status { text-align: center; margin: 10px 0; font-size: 14px; color: #4b5563; min-height: 20px; }
         .status.error { color: var(--danger); font-weight: 500; }
-        .status.warning { color: var(--warning); font-weight: 500; }
         .status.success { color: var(--success); font-weight: 500; }
-        textarea { width: 100%; height: 160px; padding: 12px; border: 1px solid #d1d5db; border-radius: 10px; font-size: 15px; line-height: 1.5; background: #f9fafb; resize: vertical; }
-        .btn-download { width: 100%; margin-top: 10px; padding: 12px; background: var(--success); display: none; }
-        .permission-help { font-size: 12px; color: #6b7280; margin-top: 8px; text-align: center; display: none; background: #fef3c7; padding: 8px; border-radius: 8px; }
-        @media (max-width: 420px) { .controls { flex-direction: column; } button { width: 100%; } }
+        textarea { width: 100%; height: 180px; padding: 12px; border: 1px solid #d1d5db; border-radius: 10px; font-size: 15px; line-height: 1.5; background: #f9fafb; resize: vertical; }
+        .btn-download { background: var(--success); margin-top: 10px; display: none; }
+        @media (max-width: 420px) { .controls { flex-direction: column; } }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>🎙️ Transcritor de Áudio Offline</h1>
-        
-        <button id="btnPermission" class="btn-permission">🔐 Conceder Permissão do Microfone</button>
+        <h1>🎙️ Transcritor de Voz</h1>
         
         <div class="controls">
             <select id="langSelect">
-                <option value="pt">🇧🇷 Português</option>
-                <option value="en">🇺🇸 English</option>
+                <option value="pt-BR">🇧🇷 Português (Brasil)</option>
+                <option value="en-US">🇺🇸 English (US)</option>
             </select>
-            <button id="btnModel" class="btn-model">⏳ Carregar Modelo</button>
         </div>
         
         <button id="btnRecord" class="btn-record" disabled>🎤 Iniciar Gravação</button>
-        <div id="status" class="status">Carregue o modelo para começar.</div>
-        <div id="permissionHelp" class="permission-help">
-            💡 <strong>Android:</strong> Configurações → Apps → [Seu App] → Permissões → Microfone → Permitir
-        </div>
+        <div id="status" class="status">Iniciando reconhecimento de voz...</div>
         
         <textarea id="output" placeholder="A transcrição aparecerá aqui..." readonly></textarea>
         <button id="btnDownload" class="btn-download">📥 Baixar Transcrição (.txt)</button>
     </div>
 
-    <!-- Carrega transformers.js LOCALMENTE (sem CDN!) -->
-    <script src="transformers.min.js"></script>
-    
     <script>
-        // ⚠️ IMPORTANTE: transformers.js carregado via script tag usa variável global
-        const { pipeline } = transformers;
-        
-        let transcriber = null;
-        let mediaRecorder = null;
-        let audioChunks = [];
-        let isRecording = false;
-        let audioCtx = null;
-        let micPermissionGranted = false;
-        let isAndroid = /Android/i.test(navigator.userAgent);
-        let modelLoaded = false;
-
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
         const els = {
-            btnModel: document.getElementById('btnModel'),
             btnRecord: document.getElementById('btnRecord'),
-            btnPermission: document.getElementById('btnPermission'),
-            permissionHelp: document.getElementById('permissionHelp'),
             langSelect: document.getElementById('langSelect'),
             status: document.getElementById('status'),
             output: document.getElementById('output'),
             btnDownload: document.getElementById('btnDownload')
         };
 
-        // 🔍 Verificar permissão do microfone
-        async function checkMicPermission() {
-            try {
-                if (navigator.permissions?.query) {
-                    const result = await navigator.permissions.query({ name: 'microphone' });
-                    micPermissionGranted = (result.state === 'granted');
-                    
-                    if (result.state === 'denied') {
-                        showPermissionDenied();
-                        return false;
-                    }
-                    return micPermissionGranted;
-                }
-                return true;
-            } catch (e) {
-                console.warn('Permissão não verificável:', e);
-                return true;
-            }
-        }
+        let recognition = null;
+        let isRecording = false;
+        let finalText = '';
 
-        function showPermissionDenied() {
-            els.btnPermission.style.display = 'block';
-            els.permissionHelp.style.display = 'block';
-            els.status.textContent = '⛔ Permissão negada. Configure manualmente.';
-            els.status.classList.add('error');
-        }
-
-        // 🔐 Solicitar permissão do microfone
-        async function requestMicPermission() {
-            try {
-                els.status.textContent = '🔐 Solicitando microfone...';
-                els.status.classList.remove('error', 'warning');
-                
-                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-                stream.getTracks().forEach(track => track.stop());
-                
-                micPermissionGranted = true;
-                els.btnPermission.style.display = 'none';
-                els.permissionHelp.style.display = 'none';
-                els.status.textContent = '✅ Microfone autorizado!';
-                els.status.classList.add('success');
-                return true;
-            } catch (err) {
-                console.error('Erro microfone:', err);
-                
-                if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
-                    showPermissionDenied();
-                } else if (err.name === 'NotFoundError') {
-                    els.status.textContent = '⛔ Nenhum microfone detectado.';
-                    els.status.classList.add('error');
-                } else {
-                    els.status.textContent = '⚠️ Erro: ' + err.message;
-                    els.status.classList.add('warning');
-                }
+        // Inicializa API de Reconhecimento
+        function initSpeechAPI() {
+            if (!SpeechRecognition) {
+                els.status.textContent = '⛔ Seu navegador/app não suporta reconhecimento de voz.';
+                els.status.classList.add('error');
                 return false;
             }
+
+            recognition = new SpeechRecognition();
+            recognition.continuous = true;
+            recognition.interimResults = true;
+            recognition.maxAlternatives = 1;
+
+            recognition.onstart = () => {
+                isRecording = true;
+                els.btnRecord.textContent = '⏹️ Parar';
+                els.btnRecord.classList.add('recording');
+                els.status.textContent = '🎤 Ouvindo...';
+            };
+
+            recognition.onend = () => {
+                // Reinicia automaticamente se ainda estiver gravando
+                if (isRecording) {
+                    try { recognition.start(); } catch(e) {}
+                } else {
+                    els.btnRecord.textContent = '🎤 Iniciar Gravação';
+                    els.btnRecord.classList.remove('recording');
+                    els.status.textContent = '✅ Parado.';
+                }
+            };
+
+            recognition.onresult = (event) => {
+                let interimTranscript = '';
+                let newFinal = '';
+
+                for (let i = event.resultIndex; i < event.results.length; i++) {
+                    const transcript = event.results[i][0].transcript;
+                    if (event.results[i].isFinal) {
+                        newFinal += transcript;
+                    } else {
+                        interimTranscript += transcript;
+                    }
+                }
+
+                if (newFinal) {
+                    finalText += (finalText ? ' ' : '') + newFinal;
+                    els.output.value = finalText;
+                    els.btnDownload.style.display = 'block';
+                }
+                
+                els.status.textContent = interimTranscript ? `🎤 ${interimTranscript}...` : '🎤 Ouvindo...';
+            };
+
+            recognition.onerror = (event) => {
+                console.error('Erro SpeechRecognition:', event.error);
+                if (event.error === 'not-allowed') {
+                    els.status.textContent = '⛔ Permissão do microfone negada.';
+                    els.status.classList.add('error');
+                } else if (event.error === 'no-speech') {
+                    els.status.textContent = '⚠️ Nenhum áudio detectado.';
+                } else if (event.error === 'network') {
+                    els.status.textContent = '⚠️ Erro de rede. Verifique a internet ou instale o pacote de idioma offline.';
+                    els.status.classList.add('error');
+                } else {
+                    els.status.textContent = `⚠️ Erro: ${event.error}`;
+                    els.status.classList.add('error');
+                }
+                
+                if (event.error !== 'no-speech' && event.error !== 'aborted') {
+                    stopRecording();
+                }
+            };
+
+            return true;
         }
 
-        // Botão de permissão
-        els.btnPermission.addEventListener('click', async () => {
-            if (isAndroid) {
-                els.status.textContent = '🔧 Abra Configurações do App para permitir microfone.';
-                els.status.classList.add('warning');
-            } else {
-                const granted = await requestMicPermission();
-                if (granted) els.btnRecord.disabled = false;
-            }
-        });
-
-        // 🎯 CARREGAR MODELO LOCALMENTE (SEM CDN!)
-        els.btnModel.addEventListener('click', async () => {
-            els.btnModel.disabled = true;
-            els.status.textContent = '⏳ Carregando modelo local...';
-            els.status.classList.remove('error', 'warning');
-            
-            try {
-                if (!navigator.mediaDevices?.getUserMedia) {
-                    throw new Error('API de áudio não suportada');
-                }
-                
-                if (typeof transformers === 'undefined') {
-                    throw new Error('Biblioteca transformers.js não carregada. Verifique o arquivo local.');
-                }
-                
-                // 🎯 CONFIGURAÇÃO CHAVE: carregar modelo de pasta LOCAL
-                transcriber = await pipeline('automatic-speech-recognition', './whisper-tiny', {
-                    quantized: true,  // Usa modelo quantizado se disponível
-                    dtype: 'fp32',
-                    // Força carregamento local - SEM tentar baixar da internet
-                    local_files_only: true,
-                    // Cache em localStorage para WebView Android
-                    cache_dir: 'transformers-local-cache'
-                });
-                
-                modelLoaded = true;
-                els.btnModel.textContent = '✅ Modelo Carregado';
-                els.btnRecord.disabled = false;
-                
-                await checkMicPermission();
-                els.status.textContent = micPermissionGranted 
-                    ? '🟢 Pronto! Toque em "Gravar".' 
-                    : '🟡 Modelo pronto. Conceda permissão do microfone.';
-                    
-            } catch (e) {
-                console.error('Erro ao carregar modelo local:', e);
-                
-                if (e.message?.includes('local_files_only') || e.message?.includes('not found')) {
-                    els.status.textContent = '❌ Arquivos do modelo não encontrados na pasta "whisper-tiny".';
-                    els.status.classList.add('error');
-                    els.permissionHelp.innerHTML = '💡 Certifique-se de que a pasta <code>whisper-tiny</code> com os arquivos do modelo está na mesma pasta que o index.html no Kodular Assets.';
-                    els.permissionHelp.style.display = 'block';
-                } else {
-                    els.status.textContent = '❌ Erro: ' + e.message;
-                    els.status.classList.add('error');
-                }
-                els.btnModel.disabled = false;
-            }
-        });
-
         // Controle de Gravação
-        els.btnRecord.addEventListener('click', async () => {
-            if (!modelLoaded) {
-                els.status.textContent = '⚠️ Carregue o modelo primeiro.';
-                els.status.classList.add('warning');
-                return;
-            }
-            
+        els.btnRecord.addEventListener('click', () => {
             if (!isRecording) {
-                if (!micPermissionGranted) {
-                    const granted = await requestMicPermission();
-                    if (!granted) return;
+                if (!recognition) {
+                    if (!initSpeechAPI()) return;
                 }
-                await startRecording();
+                recognition.lang = els.langSelect.value;
+                finalText = els.output.value.trim();
+                try {
+                    recognition.start();
+                } catch(e) {
+                    els.status.textContent = '⚠️ Erro ao iniciar. Toque novamente.';
+                }
             } else {
                 stopRecording();
             }
         });
 
-        async function startRecording() {
-            try {
-                const stream = await navigator.mediaDevices.getUserMedia({ 
-                    audio: {
-                        echoCancellation: true,
-                        noiseSuppression: true,
-                        sampleRate: 16000
-                    } 
-                });
-                
-                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-                mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/webm' });
-                audioChunks = [];
-
-                mediaRecorder.ondataavailable = e => {
-                    if (e.data.size > 0) audioChunks.push(e.data);
-                };
-                
-                mediaRecorder.onstop = async () => {
-                    stream.getTracks().forEach(t => t.stop());
-                    await processAudio(new Blob(audioChunks, { type: 'audio/webm' }));
-                };
-
-                mediaRecorder.onerror = (e) => {
-                    console.error('Erro MediaRecorder:', e.error);
-                    els.status.textContent = '❌ Erro na gravação.';
-                    els.status.classList.add('error');
-                    stopRecording();
-                };
-
-                mediaRecorder.start();
-                isRecording = true;
-                els.btnRecord.textContent = '⏹️ Parar';
-                els.btnRecord.classList.add('recording');
-                els.status.textContent = '🎤 Ouvindo...';
-                els.output.value = '';
-                els.btnDownload.style.display = 'none';
-            } catch (err) {
-                console.error('Erro microfone:', err);
-                
-                if (err.name === 'NotAllowedError') {
-                    showPermissionDenied();
-                } else {
-                    els.status.textContent = '⚠️ Erro: ' + err.message;
-                    els.status.classList.add('warning');
-                }
-                isRecording = false;
-                els.btnRecord.textContent = '🎤 Iniciar Gravação';
-                els.btnRecord.classList.remove('recording');
-            }
-        }
-
         function stopRecording() {
-            if (mediaRecorder?.state !== 'inactive') mediaRecorder.stop();
             isRecording = false;
-            els.btnRecord.textContent = '🎤 Iniciar Gravação';
-            els.btnRecord.classList.remove('recording');
-            els.btnRecord.disabled = true;
-            els.status.textContent = '⏳ Processando...';
-        }
-
-        // Processamento de Áudio
-        async function processAudio(blob) {
-            try {
-                const arrayBuffer = await blob.arrayBuffer();
-                const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
-                
-                // Resample para 16kHz (exigido pelo Whisper)
-                const targetRate = 16000;
-                const offlineCtx = new OfflineAudioContext(1, audioBuffer.duration * targetRate, targetRate);
-                const source = offlineCtx.createBufferSource();
-                source.buffer = audioBuffer;
-                source.connect(offlineCtx.destination);
-                source.start();
-                const rendered = await offlineCtx.startRendering();
-                const float32Data = rendered.getChannelData(0);
-
-                const lang = els.langSelect.value;
-                const result = await transcriber(float32Data, {
-                    language: lang,
-                    task: 'transcribe'
-                });
-
-                els.output.value = result.text.trim();
-                els.status.textContent = '✅ Transcrição concluída!';
-                els.status.classList.remove('error', 'warning');
-                els.btnDownload.style.display = 'block';
-            } catch (e) {
-                console.error('Erro processamento:', e);
-                els.status.textContent = '❌ Erro: ' + e.message;
-                els.status.classList.add('error');
-            } finally {
-                els.btnRecord.disabled = false;
+            if (recognition) {
+                recognition.stop();
             }
         }
 
@@ -332,10 +165,9 @@
             const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
-            const lang = els.langSelect.value === 'pt' ? 'pt' : 'en';
             const date = new Date().toISOString().slice(0, 10);
             a.href = url;
-            a.download = `transcricao_${lang}_${date}.txt`;
+            a.download = `transcricao_${date}.txt`;
             document.body.appendChild(a);
             a.click();
             document.body.removeChild(a);
@@ -343,16 +175,11 @@
         });
 
         // Inicialização
-        window.addEventListener('DOMContentLoaded', async () => {
-            if (!navigator.mediaDevices?.getUserMedia) {
-                els.status.textContent = '⛔ Ambiente não suporta gravação.';
-                els.status.classList.add('error');
-                els.btnRecord.disabled = true;
-                return;
+        window.addEventListener('DOMContentLoaded', () => {
+            if (initSpeechAPI()) {
+                els.btnRecord.disabled = false;
+                els.status.textContent = '✅ Pronto! Toque em "Gravar".';
             }
-            
-            if (isAndroid) els.permissionHelp.style.display = 'block';
-            await checkMicPermission();
         });
     </script>
 </body>
