@@ -5,15 +5,16 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <meta name="theme-color" content="#2563eb">
     
-    <!-- CSP mais permissivo para Android WebView -->
+    <!-- CSP restrito para segurança local -->
     <meta http-equiv="Content-Security-Policy" 
-          content="default-src * 'unsafe-inline' 'unsafe-eval' data: blob: filesystem: https: http:; 
-                   script-src * 'unsafe-inline' 'unsafe-eval' https: http:; 
-                   connect-src * https: http:; 
-                   media-src * blob: data:;">
+          content="default-src 'self' 'unsafe-inline' 'unsafe-eval' data: blob:; 
+                   script-src 'self' 'unsafe-inline' 'unsafe-eval'; 
+                   connect-src 'self' blob:; 
+                   media-src 'self' blob:;">
     
     <title>🎙️ Transcritor Offline</title>
     <style>
+        /* [Mantenha seu CSS original aqui - mesmo da versão anterior] */
         :root { --bg: #f0f2f5; --card: #fff; --primary: #2563eb; --success: #16a34a; --danger: #dc2626; --text: #1f2937; --warning: #f59e0b; }
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: system-ui, -apple-system, sans-serif; }
         body { background: var(--bg); display: flex; justify-content: center; align-items: center; min-height: 100vh; padding: 20px; }
@@ -36,7 +37,6 @@
         textarea { width: 100%; height: 160px; padding: 12px; border: 1px solid #d1d5db; border-radius: 10px; font-size: 15px; line-height: 1.5; background: #f9fafb; resize: vertical; }
         .btn-download { width: 100%; margin-top: 10px; padding: 12px; background: var(--success); display: none; }
         .permission-help { font-size: 12px; color: #6b7280; margin-top: 8px; text-align: center; display: none; background: #fef3c7; padding: 8px; border-radius: 8px; }
-        .retry-btn { background: #6366f1; margin-top: 10px; display: none; }
         @media (max-width: 420px) { .controls { flex-direction: column; } button { width: 100%; } }
     </style>
 </head>
@@ -51,30 +51,25 @@
                 <option value="pt">🇧🇷 Português</option>
                 <option value="en">🇺🇸 English</option>
             </select>
-            <button id="btnModel" class="btn-model">⏳ Baixar Modelo</button>
+            <button id="btnModel" class="btn-model">⏳ Carregar Modelo</button>
         </div>
-        
-        <!-- Botão de retry para erros de conexão -->
-        <button id="btnRetry" class="btn-model retry-btn">🔄 Tentar Novamente</button>
         
         <button id="btnRecord" class="btn-record" disabled>🎤 Iniciar Gravação</button>
         <div id="status" class="status">Carregue o modelo para começar.</div>
         <div id="permissionHelp" class="permission-help">
-            💡 <strong>Android:</strong> Se o microfone não funcionar:<br>
-            1️⃣ Configurações → Apps → [Seu App] → Permissões → Microfone → Permitir
+            💡 <strong>Android:</strong> Configurações → Apps → [Seu App] → Permissões → Microfone → Permitir
         </div>
         
         <textarea id="output" placeholder="A transcrição aparecerá aqui..." readonly></textarea>
         <button id="btnDownload" class="btn-download">📥 Baixar Transcrição (.txt)</button>
     </div>
 
-    <script type="module">
-        // 🔄 Fallback para múltiplos CDNs em caso de ERR_SOCKET_NOT_CONNECTED
-        const CDN_URLS = [
-            'https://cdn.jsdelivr.net/npm/@xenova/transformers@2.17.2',
-            'https://unpkg.com/@xenova/transformers@2.17.2',
-            'https://cdn.skypack.dev/@xenova/transformers@2.17.2'
-        ];
+    <!-- Carrega transformers.js LOCALMENTE (sem CDN!) -->
+    <script src="transformers.min.js"></script>
+    
+    <script>
+        // ⚠️ IMPORTANTE: transformers.js carregado via script tag usa variável global
+        const { pipeline } = transformers;
         
         let transcriber = null;
         let mediaRecorder = null;
@@ -83,13 +78,12 @@
         let audioCtx = null;
         let micPermissionGranted = false;
         let isAndroid = /Android/i.test(navigator.userAgent);
-        let currentCdnIndex = 0;
+        let modelLoaded = false;
 
         const els = {
             btnModel: document.getElementById('btnModel'),
             btnRecord: document.getElementById('btnRecord'),
             btnPermission: document.getElementById('btnPermission'),
-            btnRetry: document.getElementById('btnRetry'),
             permissionHelp: document.getElementById('permissionHelp'),
             langSelect: document.getElementById('langSelect'),
             status: document.getElementById('status'),
@@ -97,60 +91,28 @@
             btnDownload: document.getElementById('btnDownload')
         };
 
-        // 🔄 Função para carregar transformers.js com fallback de CDN
-        async function loadTransformersLib() {
-            while (currentCdnIndex < CDN_URLS.length) {
-                try {
-                    const url = CDN_URLS[currentCdnIndex];
-                    els.status.textContent = `📡 Conectando ao servidor ${currentCdnIndex + 1}/${CDN_URLS.length}...`;
-                    
-                    // Importa dinamicamente com timeout
-                    const controller = new AbortController();
-                    const timeout = setTimeout(() => controller.abort(), 15000); // 15s timeout
-                    
-                    const { pipeline } = await import(`${url}/dist/transformers.min.js`);
-                    clearTimeout(timeout);
-                    
-                    return pipeline;
-                } catch (err) {
-                    console.warn(`Falha no CDN ${currentCdnIndex + 1}:`, err);
-                    currentCdnIndex++;
-                    
-                    if (err.name === 'TypeError' && err.message.includes('socket')) {
-                        els.status.textContent = '⚠️ Erro de conexão. Tentando outro servidor...';
-                        els.status.classList.add('warning');
-                    }
-                }
-            }
-            throw new Error('Não foi possível conectar a nenhum servidor. Verifique sua internet.');
-        }
-
         // 🔍 Verificar permissão do microfone
         async function checkMicPermission() {
             try {
-                if (navigator.permissions && navigator.permissions.query) {
+                if (navigator.permissions?.query) {
                     const result = await navigator.permissions.query({ name: 'microphone' });
                     micPermissionGranted = (result.state === 'granted');
                     
                     if (result.state === 'denied') {
                         showPermissionDenied();
                         return false;
-                    } else if (result.state === 'prompt') {
-                        els.btnPermission.style.display = 'block';
-                        els.permissionHelp.style.display = 'block';
                     }
                     return micPermissionGranted;
                 }
                 return true;
             } catch (e) {
-                console.warn('Não foi possível verificar permissão:', e);
+                console.warn('Permissão não verificável:', e);
                 return true;
             }
         }
 
         function showPermissionDenied() {
             els.btnPermission.style.display = 'block';
-            els.btnPermission.textContent = '⚙️ Abrir Configurações';
             els.permissionHelp.style.display = 'block';
             els.status.textContent = '⛔ Permissão negada. Configure manualmente.';
             els.status.classList.add('error');
@@ -159,7 +121,7 @@
         // 🔐 Solicitar permissão do microfone
         async function requestMicPermission() {
             try {
-                els.status.textContent = '🔐 Solicitando acesso ao microfone...';
+                els.status.textContent = '🔐 Solicitando microfone...';
                 els.status.classList.remove('error', 'warning');
                 
                 const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -170,18 +132,14 @@
                 els.permissionHelp.style.display = 'none';
                 els.status.textContent = '✅ Microfone autorizado!';
                 els.status.classList.add('success');
-                
                 return true;
             } catch (err) {
-                console.error('Erro ao solicitar microfone:', err);
+                console.error('Erro microfone:', err);
                 
                 if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
                     showPermissionDenied();
                 } else if (err.name === 'NotFoundError') {
                     els.status.textContent = '⛔ Nenhum microfone detectado.';
-                    els.status.classList.add('error');
-                } else if (err.name === 'NotSupportedError') {
-                    els.status.textContent = '⚠️ WebView não suporta gravação.';
                     els.status.classList.add('error');
                 } else {
                     els.status.textContent = '⚠️ Erro: ' + err.message;
@@ -191,17 +149,10 @@
             }
         }
 
-        // 🔄 Botão de retry para erros de conexão
-        els.btnRetry.addEventListener('click', () => {
-            els.btnRetry.style.display = 'none';
-            els.btnModel.disabled = false;
-            els.btnModel.click();
-        });
-
         // Botão de permissão
         els.btnPermission.addEventListener('click', async () => {
             if (isAndroid) {
-                els.status.textContent = '🔧 Abra as configurações do app para permitir o microfone.';
+                els.status.textContent = '🔧 Abra Configurações do App para permitir microfone.';
                 els.status.classList.add('warning');
             } else {
                 const granted = await requestMicPermission();
@@ -209,31 +160,33 @@
             }
         });
 
-        // 1. Carregar modelo Whisper Tiny COM TRATAMENTO DE ERRO DE SOCKET
+        // 🎯 CARREGAR MODELO LOCALMENTE (SEM CDN!)
         els.btnModel.addEventListener('click', async () => {
             els.btnModel.disabled = true;
-            els.btnRetry.style.display = 'none';
-            els.status.textContent = '📥 Baixando modelo (~40MB)...';
+            els.status.textContent = '⏳ Carregando modelo local...';
             els.status.classList.remove('error', 'warning');
             
             try {
-                // Verifica APIs básicas primeiro
                 if (!navigator.mediaDevices?.getUserMedia) {
                     throw new Error('API de áudio não suportada');
                 }
                 
-                // Carrega biblioteca com fallback de CDN
-                const { pipeline } = await loadTransformersLib();
+                if (typeof transformers === 'undefined') {
+                    throw new Error('Biblioteca transformers.js não carregada. Verifique o arquivo local.');
+                }
                 
-                // Carrega modelo com retry
-                transcriber = await pipeline('automatic-speech-recognition', 'Xenova/whisper-tiny', {
-                    quantized: 'q4',
+                // 🎯 CONFIGURAÇÃO CHAVE: carregar modelo de pasta LOCAL
+                transcriber = await pipeline('automatic-speech-recognition', './whisper-tiny', {
+                    quantized: true,  // Usa modelo quantizado se disponível
                     dtype: 'fp32',
-                    // Cache configuration para Android
-                    cache_dir: 'transformers-cache'
+                    // Força carregamento local - SEM tentar baixar da internet
+                    local_files_only: true,
+                    // Cache em localStorage para WebView Android
+                    cache_dir: 'transformers-local-cache'
                 });
                 
-                els.btnModel.textContent = '✅ Modelo Pronto';
+                modelLoaded = true;
+                els.btnModel.textContent = '✅ Modelo Carregado';
                 els.btnRecord.disabled = false;
                 
                 await checkMicPermission();
@@ -242,16 +195,13 @@
                     : '🟡 Modelo pronto. Conceda permissão do microfone.';
                     
             } catch (e) {
-                console.error('Erro ao carregar:', e);
+                console.error('Erro ao carregar modelo local:', e);
                 
-                // Detecta erro de socket/conexão
-                if (e.message?.includes('socket') || e.message?.includes('ERR_SOCKET') || 
-                    e.message?.includes('Failed to fetch') || e.name === 'TypeError') {
-                    
-                    els.status.textContent = '⚠️ Erro de conexão com o servidor.';
-                    els.status.classList.add('warning');
-                    els.btnRetry.style.display = 'block';
-                    els.btnModel.textContent = '❌ Falha na Conexão';
+                if (e.message?.includes('local_files_only') || e.message?.includes('not found')) {
+                    els.status.textContent = '❌ Arquivos do modelo não encontrados na pasta "whisper-tiny".';
+                    els.status.classList.add('error');
+                    els.permissionHelp.innerHTML = '💡 Certifique-se de que a pasta <code>whisper-tiny</code> com os arquivos do modelo está na mesma pasta que o index.html no Kodular Assets.';
+                    els.permissionHelp.style.display = 'block';
                 } else {
                     els.status.textContent = '❌ Erro: ' + e.message;
                     els.status.classList.add('error');
@@ -260,8 +210,14 @@
             }
         });
 
-        // 2. Controle de Gravação
+        // Controle de Gravação
         els.btnRecord.addEventListener('click', async () => {
+            if (!modelLoaded) {
+                els.status.textContent = '⚠️ Carregue o modelo primeiro.';
+                els.status.classList.add('warning');
+                return;
+            }
+            
             if (!isRecording) {
                 if (!micPermissionGranted) {
                     const granted = await requestMicPermission();
@@ -297,8 +253,8 @@
                 };
 
                 mediaRecorder.onerror = (e) => {
-                    console.error('Erro no MediaRecorder:', e.error);
-                    els.status.textContent = '❌ Erro na gravação: ' + (e.error?.message || 'Erro desconhecido');
+                    console.error('Erro MediaRecorder:', e.error);
+                    els.status.textContent = '❌ Erro na gravação.';
                     els.status.classList.add('error');
                     stopRecording();
                 };
@@ -311,13 +267,10 @@
                 els.output.value = '';
                 els.btnDownload.style.display = 'none';
             } catch (err) {
-                console.error('Erro ao acessar microfone:', err);
+                console.error('Erro microfone:', err);
                 
-                if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+                if (err.name === 'NotAllowedError') {
                     showPermissionDenied();
-                } else if (err.name === 'NotFoundError') {
-                    els.status.textContent = '⛔ Nenhum microfone encontrado.';
-                    els.status.classList.add('error');
                 } else {
                     els.status.textContent = '⚠️ Erro: ' + err.message;
                     els.status.classList.add('warning');
@@ -329,22 +282,21 @@
         }
 
         function stopRecording() {
-            if (mediaRecorder && mediaRecorder.state !== 'inactive') {
-                mediaRecorder.stop();
-            }
+            if (mediaRecorder?.state !== 'inactive') mediaRecorder.stop();
             isRecording = false;
             els.btnRecord.textContent = '🎤 Iniciar Gravação';
             els.btnRecord.classList.remove('recording');
             els.btnRecord.disabled = true;
-            els.status.textContent = '⏳ Processando áudio...';
+            els.status.textContent = '⏳ Processando...';
         }
 
-        // 3. Processamento de Áudio
+        // Processamento de Áudio
         async function processAudio(blob) {
             try {
                 const arrayBuffer = await blob.arrayBuffer();
                 const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
                 
+                // Resample para 16kHz (exigido pelo Whisper)
                 const targetRate = 16000;
                 const offlineCtx = new OfflineAudioContext(1, audioBuffer.duration * targetRate, targetRate);
                 const source = offlineCtx.createBufferSource();
@@ -365,7 +317,7 @@
                 els.status.classList.remove('error', 'warning');
                 els.btnDownload.style.display = 'block';
             } catch (e) {
-                console.error('Erro no processamento:', e);
+                console.error('Erro processamento:', e);
                 els.status.textContent = '❌ Erro: ' + e.message;
                 els.status.classList.add('error');
             } finally {
@@ -373,7 +325,7 @@
             }
         }
 
-        // 4. Download
+        // Download
         els.btnDownload.addEventListener('click', () => {
             const text = els.output.value.trim();
             if (!text) return;
@@ -390,21 +342,16 @@
             URL.revokeObjectURL(url);
         });
 
-        // 🚀 Inicialização
+        // Inicialização
         window.addEventListener('DOMContentLoaded', async () => {
             if (!navigator.mediaDevices?.getUserMedia) {
-                els.status.textContent = '⛔ Este ambiente não suporta gravação de áudio.';
+                els.status.textContent = '⛔ Ambiente não suporta gravação.';
                 els.status.classList.add('error');
                 els.btnRecord.disabled = true;
-                els.permissionHelp.innerHTML = '💡 Atualize o Android System WebView ou use outro navegador.';
-                els.permissionHelp.style.display = 'block';
                 return;
             }
             
-            if (isAndroid) {
-                els.permissionHelp.style.display = 'block';
-            }
-            
+            if (isAndroid) els.permissionHelp.style.display = 'block';
             await checkMicPermission();
         });
     </script>
