@@ -7,7 +7,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="theme-color" content="#2563eb">
     
-    <!-- ✅ NOVO: Permite uso do microfone em iframes/WebView -->
+    <!-- Permissões para WebView/Android -->
     <meta http-equiv="Permissions-Policy" content="microphone=(self)">
     <meta http-equiv="Feature-Policy" content="microphone 'self'">
     
@@ -29,6 +29,7 @@
         .btn-record.recording { background: var(--danger); }
         .btn-permission { background: var(--warning); color: #1f2937; width: 100%; margin-bottom: 10px; display: none; }
         .btn-permission:hover { filter: brightness(0.95); }
+        .btn-recheck { background: #8b5cf6; width: 100%; margin-top: 8px; display: none; }
         .status { text-align: center; margin: 10px 0; font-size: 14px; color: #4b5563; min-height: 20px; }
         .status.error { color: var(--danger); font-weight: 500; }
         .status.warning { color: var(--warning); font-weight: 500; }
@@ -36,7 +37,9 @@
         textarea { width: 100%; height: 160px; padding: 12px; border: 1px solid #d1d5db; border-radius: 10px; font-size: 15px; line-height: 1.5; background: #f9fafb; resize: vertical; }
         .btn-download { width: 100%; margin-top: 10px; padding: 12px; background: var(--success); display: none; }
         .btn-download:hover { filter: brightness(0.9); }
-        .permission-help { font-size: 12px; color: #6b7280; margin-top: 8px; text-align: center; display: none; background: #fffbeb; padding: 10px; border-radius: 8px; border-left: 3px solid var(--warning); }
+        .permission-help { font-size: 12px; color: #6b7280; margin-top: 8px; text-align: center; display: none; background: #fffbeb; padding: 12px; border-radius: 8px; border-left: 4px solid var(--warning); }
+        .permission-steps { text-align: left; margin-top: 10px; font-size: 11px; line-height: 1.6; }
+        .permission-steps code { background: #f3f4f6; padding: 2px 6px; border-radius: 4px; font-family: monospace; }
         @media (max-width: 420px) { .controls { flex-direction: column; } button { width: 100%; } }
     </style>
 </head>
@@ -44,8 +47,9 @@
     <div class="container">
         <h1>🎙️ Transcritor de Áudio Offline</h1>
         
-        <!-- Botão de solicitação de permissão -->
+        <!-- Botões de permissão -->
         <button id="btnPermission" class="btn-permission">🔐 Permitir Acesso ao Microfone</button>
+        <button id="btnRecheck" class="btn-recheck">🔄 Já permiti! Verificar novamente</button>
         
         <div class="controls">
             <select id="langSelect">
@@ -58,11 +62,10 @@
         <div id="status" class="status">Carregue o modelo para começar. Funciona 100% offline após o 1º uso.</div>
         
         <div id="permissionHelp" class="permission-help">
-            💡 <strong>Android:</strong> Se o microfone não funcionar:<br>
-            1️⃣ Vá em <code>Configurações → Apps</code><br>
-            2️⃣ Encontre este app<br>
-            3️⃣ Toque em <code>Permissões → Microfone → Permitir</code><br><br>
-            <small>Depois volte aqui e toque em "🔐 Permitir Acesso ao Microfone"</small>
+            <strong>🔧 Como permitir o microfone no Android:</strong>
+            <div class="permission-steps" id="permissionSteps">
+                <!-- Preenchido dinamicamente por JS -->
+            </div>
         </div>
         
         <textarea id="output" placeholder="A transcrição aparecerá aqui..." readonly></textarea>
@@ -78,139 +81,206 @@
         let isRecording = false;
         let audioCtx = null;
         let micPermissionGranted = false;
-        let isAndroidWebView = false;
+        let isAndroid = false;
+        let androidVersion = 0;
 
         const els = {
             btnModel: document.getElementById('btnModel'),
             btnRecord: document.getElementById('btnRecord'),
             btnPermission: document.getElementById('btnPermission'),
+            btnRecheck: document.getElementById('btnRecheck'),
             permissionHelp: document.getElementById('permissionHelp'),
+            permissionSteps: document.getElementById('permissionSteps'),
             langSelect: document.getElementById('langSelect'),
             status: document.getElementById('status'),
             output: document.getElementById('output'),
             btnDownload: document.getElementById('btnDownload')
         };
 
-        // 🔍 Detecta Android WebView (Kodular, etc)
-        function detectAndroidWebView() {
-            const ua = navigator.userAgent || navigator.vendor || window.opera;
-            // Detecta WebView do Android sem Chrome/Firefox completo
-            isAndroidWebView = /Android/.test(ua) && 
-                              (/wv/.test(ua) || /Version\/\d+/.test(ua) && !/Chrome\/[5-9]\d+/.test(ua));
-            return isAndroidWebView;
+        // 🔍 Detecta Android e versão
+        function detectAndroid() {
+            const ua = navigator.userAgent;
+            isAndroid = /Android/i.test(ua);
+            if (isAndroid) {
+                const match = ua.match(/Android\s([0-9.]+)/i);
+                androidVersion = match ? parseFloat(match[1]) : 0;
+            }
+            return isAndroid;
         }
 
-        // ✅ Solicitação DIRETA de permissão - funciona melhor em WebView Android
-        async function requestMicPermission() {
+        // 📋 Gera instruções específicas por versão do Android
+        function getPermissionInstructions() {
+            if (!isAndroid) {
+                return '💡 Clique no botão "🔐 Permitir Acesso ao Microfone" e autorize quando solicitado.';
+            }
+            
+            let steps = `<ol style="margin:8px 0 0 16px;padding:0;">`;
+            steps += `<li>Abra <code>Configurações</code> do seu Android</li>`;
+            steps += `<li>Toque em <code>Apps</code> ou <code>Aplicativos</code></li>`;
+            steps += `<li>Encontre este app na lista (pode aparecer como "Kodular", "WebView" ou nome do seu projeto)</li>`;
+            steps += `<li>Toque em <code>Permissões</code></li>`;
+            steps += `<li>Toque em <code>Microfone</code></li>`;
+            steps += `<li>Selecione <code>${androidVersion >= 11 ? 'Permitir apenas durante o uso' : 'Permitir'}</code></li>`;
+            steps += `</ol>`;
+            steps += `<small style="color:#9ca3af;display:block;margin-top:8px;">⚠️ Se não encontrar, procure por "Permissões do app" na busca das Configurações</small>`;
+            
+            return steps;
+        }
+
+        // ✅ Solicitação de permissão - versão simplificada para máxima compatibilidade
+        async function requestMicPermission(simple = false) {
             try {
-                els.status.textContent = '🔐 Solicitando acesso ao microfone...';
+                els.status.textContent = '🔐 Solicitando acesso...';
                 els.status.classList.remove('error', 'warning', 'success');
                 
-                // ⚠️ Em Android WebView, getUserMedia DEVE ser chamado para abrir o diálogo nativo
-                const stream = await navigator.mediaDevices.getUserMedia({ 
-                    audio: {
-                        echoCancellation: true,
-                        noiseSuppression: true,
-                        sampleRate: 16000
-                    } 
-                });
+                // Configurações mais compatíveis para Android WebView
+                const audioConfig = simple 
+                    ? { audio: true } // ✅ Mais simples = mais compatível
+                    : { 
+                        audio: {
+                            echoCancellation: true,
+                            noiseSuppression: true,
+                            sampleRate: 16000,
+                            channelCount: 1
+                        } 
+                      };
                 
-                // Permissão concedida! Para os tracks imediatamente (só precisamos da autorização)
+                const stream = await navigator.mediaDevices.getUserMedia(audioConfig);
+                
+                // Permissão concedida!
                 stream.getTracks().forEach(track => track.stop());
                 
                 micPermissionGranted = true;
                 els.btnPermission.style.display = 'none';
+                els.btnRecheck.style.display = 'none';
                 els.permissionHelp.style.display = 'none';
-                els.status.textContent = '✅ Microfone autorizado! Agora você pode gravar.';
+                els.status.textContent = '✅ Microfone autorizado!';
                 els.status.classList.add('success');
                 
-                // Habilita botão de gravação se o modelo já estiver carregado
-                if (transcriber) {
-                    els.btnRecord.disabled = false;
-                }
+                if (transcriber) els.btnRecord.disabled = false;
                 
                 return true;
             } catch (err) {
                 console.error('❌ Erro ao solicitar microfone:', err);
                 
-                // Tratamento específico para erros comuns em Android
+                // Mapeamento de erros para mensagens amigáveis
+                const errorMap = {
+                    'NotAllowedError': '⛔ Permissão negada. Permita nas configurações.',
+                    'PermissionDeniedError': '⛔ Acesso negado pelo sistema.',
+                    'NotFoundError': '⛔ Nenhum microfone detectado.',
+                    'NotReadableError': '⛔ Microfone em uso por outro app.',
+                    'NotSupportedError': '⚠️ Gravação não suportada neste dispositivo.',
+                    'SecurityError': '⚠️ Contexto de segurança restrito.',
+                    'AbortError': '⚠️ Solicitação cancelada.',
+                    'OverconstrainedError': '⚠️ Configurações de áudio incompatíveis.'
+                };
+                
+                const message = errorMap[err.name] || `⚠️ Erro: ${err.message}`;
+                els.status.textContent = message;
+                els.status.classList.add('error');
+                
+                // Se for NotAllowedError, mostra ajuda para configuração manual
                 if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
-                    els.status.textContent = '⛔ Permissão negada. Permita nas configurações do app.';
-                    els.status.classList.add('error');
                     els.permissionHelp.style.display = 'block';
                     els.btnPermission.style.display = 'block';
-                } else if (err.name === 'NotFoundError' || err.name === 'DevicesNotFoundError') {
-                    els.status.textContent = '⛔ Nenhum microfone detectado.';
-                    els.status.classList.add('error');
-                } else if (err.name === 'NotSupportedError') {
-                    els.status.textContent = '⚠️ Gravação não suportada neste dispositivo.';
-                    els.status.classList.add('warning');
-                } else if (err.name === 'SecurityError' || err.message?.includes('secure context')) {
-                    // ⚠️ WebView pode não ser considerado contexto seguro
-                    els.status.textContent = '⚠️ Contexto de segurança: instale como app ou use HTTPS.';
-                    els.status.classList.add('warning');
-                    els.permissionHelp.style.display = 'block';
-                    els.permissionHelp.innerHTML += '<br><small>🔐 Em alguns casos, o app precisa ser "instalado" para ter acesso total.</small>';
-                } else {
-                    els.status.textContent = '⚠️ Erro: ' + (err.message || err);
-                    els.status.classList.add('warning');
+                    els.btnRecheck.style.display = 'block';
+                    
+                    // Detecta se pode ser "negado permanentemente"
+                    if (await checkIsPermanentlyDenied()) {
+                        els.status.textContent = '🔒 Permissão bloqueada permanentemente.';
+                        els.permissionHelp.innerHTML += '<br><small style="color:#dc2626">⚠️ Você marcou "Nunca perguntar"? Toque em "🔄 Verificar novamente" após habilitar manualmente.</small>';
+                    }
                 }
+                
                 return false;
             }
         }
 
-        // 🎯 Função otimizada para Android WebView
-        async function setupMicForAndroid() {
-            // Em WebView, às vezes é necessário um "trigger" do usuário
-            // Então mostramos o botão de permissão proativamente
-            if (isAndroidWebView || !window.isSecureContext) {
-                els.btnPermission.style.display = 'block';
-                els.permissionHelp.style.display = 'block';
-                
-                // Tenta solicitar permissão automaticamente após pequeno delay
-                // (pode funcionar se o WebView permitir)
-                setTimeout(async () => {
-                    try {
-                        // Teste silencioso - se funcionar, ótimo; se não, usuário clica no botão
-                        const testStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-                        testStream.getTracks().forEach(t => t.stop());
-                        micPermissionGranted = true;
-                        els.btnPermission.style.display = 'none';
-                        els.permissionHelp.style.display = 'none';
-                        if (transcriber) els.btnRecord.disabled = false;
-                    } catch (e) {
-                        // Era esperado - usuário precisará clicar no botão
-                        console.log('Permissão precisa ser solicitada pelo usuário');
-                    }
-                }, 1000);
+        // 🔒 Verifica se permissão foi negada permanentemente (Android 6+)
+        async function checkIsPermanentlyDenied() {
+            try {
+                if (navigator.permissions && navigator.permissions.query) {
+                    const result = await navigator.permissions.query({ name: 'microphone' });
+                    return result.state === 'denied';
+                }
+            } catch (e) {
+                // API não suportada - assume que pode ser permanente
             }
+            return false;
         }
+
+        // 🔄 Botão "Verificar novamente" - reavalia após usuário habilitar nas configurações
+        els.btnRecheck.addEventListener('click', async () => {
+            els.status.textContent = '🔄 Verificando permissão...';
+            els.status.classList.remove('error', 'warning');
+            
+            // Tenta primeiro com configurações simples (mais compatível)
+            const granted = await requestMicPermission(true);
+            
+            if (!granted) {
+                // Se falhar, tenta com configurações completas
+                await requestMicPermission(false);
+            }
+        });
+
+        // 🔘 Botão principal de permissão
+        els.btnPermission.addEventListener('click', async () => {
+            // Tenta com configurações completas primeiro
+            let granted = await requestMicPermission(false);
+            
+            if (!granted) {
+                // Fallback para modo simples
+                granted = await requestMicPermission(true);
+            }
+            
+            if (granted && transcriber) {
+                els.btnRecord.disabled = false;
+            }
+        });
 
         // 1. Carregar modelo Whisper Tiny
         els.btnModel.addEventListener('click', async () => {
             els.btnModel.disabled = true;
-            els.status.textContent = '📥 Baixando modelo (~40MB)... Aguarde.';
+            els.status.textContent = '📥 Baixando modelo (~40MB)...';
             els.status.classList.remove('error', 'warning');
             
             try {
                 transcriber = await pipeline('automatic-speech-recognition', 'Xenova/whisper-tiny', {
-                    quantized: true, // ✅ Usa quantização para menor tamanho
+                    quantized: true,
                     dtype: 'fp32'
                 });
                 
                 els.btnModel.textContent = '✅ Modelo Pronto';
-                els.btnModel.disabled = true; // Modelo já carregado
+                els.btnModel.disabled = true;
                 
-                // ✅ Após carregar modelo, configura microfone
-                setupMicForAndroid();
-                
-                if (micPermissionGranted) {
-                    els.btnRecord.disabled = false;
-                    els.status.textContent = '🟢 Pronto! Toque em "Gravar".';
+                // Configura UI para Android
+                if (isAndroid) {
+                    els.permissionSteps.innerHTML = getPermissionInstructions();
+                    
+                    // Tenta obter permissão automaticamente (pode funcionar em alguns casos)
+                    try {
+                        await new Promise(r => setTimeout(r, 800));
+                        const testStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                        testStream.getTracks().forEach(t => t.stop());
+                        micPermissionGranted = true;
+                        els.btnRecord.disabled = false;
+                        els.status.textContent = '🟢 Pronto! Toque em "Gravar".';
+                        return;
+                    } catch (e) {
+                        // Era esperado - mostra botão de permissão
+                        els.btnPermission.style.display = 'block';
+                        els.permissionHelp.style.display = 'block';
+                        els.status.textContent = '🟡 Permita o microfone para começar.';
+                        els.status.classList.add('warning');
+                    }
                 } else {
-                    els.status.textContent = '🟡 Modelo pronto! Permita o microfone para gravar.';
-                    els.status.classList.add('warning');
+                    // Navegador comum - tenta permissão normal
+                    if (await requestMicPermission(false)) {
+                        els.btnRecord.disabled = false;
+                        els.status.textContent = '🟢 Pronto!';
+                    }
                 }
+                
             } catch (e) {
                 console.error('Erro ao carregar modelo:', e);
                 els.status.textContent = '❌ Erro: ' + e.message;
@@ -220,20 +290,11 @@
             }
         });
 
-        // 🔘 Botão de permissão - FORÇA a solicitação (acionado pelo usuário)
-        els.btnPermission.addEventListener('click', async () => {
-            const granted = await requestMicPermission();
-            if (granted && transcriber) {
-                els.btnRecord.disabled = false;
-            }
-        });
-
         // 2. Controle de Gravação
         els.btnRecord.addEventListener('click', async () => {
             if (!isRecording) {
-                // Garante permissão antes de gravar
                 if (!micPermissionGranted) {
-                    const granted = await requestMicPermission();
+                    const granted = await requestMicPermission(true); // Usa modo simples primeiro
                     if (!granted) return;
                 }
                 await startRecording();
@@ -244,32 +305,32 @@
 
         async function startRecording() {
             try {
-                const stream = await navigator.mediaDevices.getUserMedia({ 
-                    audio: {
-                        echoCancellation: true,
-                        noiseSuppression: true,
-                        sampleRate: 16000,
-                        channelCount: 1
-                    } 
-                });
+                // Tenta com configurações completas, fallback para simples
+                let stream;
+                try {
+                    stream = await navigator.mediaDevices.getUserMedia({ 
+                        audio: {
+                            echoCancellation: true,
+                            noiseSuppression: true,
+                            sampleRate: 16000,
+                            channelCount: 1
+                        } 
+                    });
+                } catch (e) {
+                    console.log('⚠️ Fallback para configurações simples de áudio');
+                    stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                }
                 
-                // Cria AudioContext se necessário
                 if (!audioCtx) {
                     audioCtx = new (window.AudioContext || window.webkitAudioContext)();
                 }
                 
-                // ✅ Usa mimeType compatível com Android
+                // Seleciona mimeType compatível
                 const mimeTypes = ['audio/webm;codecs=opus', 'audio/webm', 'audio/ogg;codecs=opus', 'audio/mp4'];
-                let selectedMimeType = '';
-                for (const mime of mimeTypes) {
-                    if (MediaRecorder.isTypeSupported(mime)) {
-                        selectedMimeType = mime;
-                        break;
-                    }
-                }
+                let selectedMimeType = mimeTypes.find(mime => MediaRecorder.isTypeSupported(mime)) || '';
                 
                 mediaRecorder = new MediaRecorder(stream, { 
-                    mimeType: selectedMimeType || 'audio/webm' 
+                    mimeType: selectedMimeType || undefined 
                 });
                 
                 audioChunks = [];
@@ -279,19 +340,18 @@
                 };
                 
                 mediaRecorder.onstop = async () => {
-                    // Para todos os tracks do stream
                     stream.getTracks().forEach(track => track.stop());
                     await processAudio(new Blob(audioChunks, { type: selectedMimeType || 'audio/webm' }));
                 };
 
                 mediaRecorder.onerror = (e) => {
                     console.error('❌ Erro no MediaRecorder:', e.error);
-                    els.status.textContent = '❌ Erro na gravação: ' + (e.error?.message || e.error);
+                    els.status.textContent = '❌ Erro: ' + (e.error?.message || 'Falha na gravação');
                     els.status.classList.add('error');
                     stopRecording();
                 };
 
-                mediaRecorder.start(100); // Coleta dados a cada 100ms para melhor compatibilidade
+                mediaRecorder.start(100);
                 isRecording = true;
                 els.btnRecord.textContent = '⏹️ Parar';
                 els.btnRecord.classList.add('recording');
@@ -300,23 +360,19 @@
                 els.btnDownload.style.display = 'none';
                 
             } catch (err) {
-                console.error('❌ Erro ao acessar microfone:', err);
-                
-                if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
-                    els.status.textContent = '⛔ Permissão negada. Verifique as configurações do app.';
-                    els.permissionHelp.style.display = 'block';
-                } else if (err.name === 'NotFoundError') {
-                    els.status.textContent = '⛔ Microfone não encontrado.';
-                } else if (err.name === 'NotReadableError') {
-                    els.status.textContent = '⛔ Microfone em uso por outro app.';
-                } else {
-                    els.status.textContent = '⚠️ Erro: ' + (err.message || err);
-                }
+                console.error('❌ Erro ao gravar:', err);
+                els.status.textContent = '⛔ ' + (err.message || 'Erro ao acessar microfone');
                 els.status.classList.add('error');
                 isRecording = false;
                 els.btnRecord.textContent = '🎤 Iniciar Gravação';
                 els.btnRecord.classList.remove('recording');
                 els.btnRecord.disabled = false;
+                
+                if (err.name === 'NotAllowedError') {
+                    els.btnPermission.style.display = 'block';
+                    els.btnRecheck.style.display = 'block';
+                    els.permissionHelp.style.display = 'block';
+                }
             }
         }
 
@@ -328,16 +384,15 @@
             els.btnRecord.textContent = '🎤 Iniciar Gravação';
             els.btnRecord.classList.remove('recording');
             els.btnRecord.disabled = true;
-            els.status.textContent = '⏳ Processando áudio...';
+            els.status.textContent = '⏳ Processando...';
         }
 
-        // 3. Processamento de Áudio (Resample para 16kHz)
+        // 3. Processamento de Áudio
         async function processAudio(blob) {
             try {
                 const arrayBuffer = await blob.arrayBuffer();
                 const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
                 
-                // Resampling para 16kHz (exigido pelo Whisper)
                 const targetRate = 16000;
                 const offlineCtx = new OfflineAudioContext(1, audioBuffer.duration * targetRate, targetRate);
                 const source = offlineCtx.createBufferSource();
@@ -347,7 +402,6 @@
                 const rendered = await offlineCtx.startRendering();
                 const float32Data = rendered.getChannelData(0);
 
-                // 4. Transcrição
                 const lang = els.langSelect.value;
                 els.status.textContent = '🔄 Transcrevendo...';
                 
@@ -357,7 +411,7 @@
                 });
 
                 els.output.value = result.text.trim();
-                els.status.textContent = '✅ Transcrição concluída!';
+                els.status.textContent = '✅ Concluído!';
                 els.status.classList.remove('error', 'warning');
                 els.status.classList.add('success');
                 els.btnDownload.style.display = 'block';
@@ -371,7 +425,7 @@
             }
         }
 
-        // 5. Download do arquivo .txt
+        // 4. Download
         els.btnDownload.addEventListener('click', () => {
             const text = els.output.value.trim();
             if (!text) return;
@@ -390,39 +444,28 @@
 
         // 🚀 Inicialização
         window.addEventListener('DOMContentLoaded', async () => {
-            // Verifica suporte básico
-            if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-                els.status.textContent = '⛔ Gravação de áudio não suportada.';
+            if (!navigator.mediaDevices?.getUserMedia) {
+                els.status.textContent = '⛔ Gravação não suportada.';
                 els.status.classList.add('error');
                 els.btnRecord.disabled = true;
                 return;
             }
             
-            // Detecta Android/WebView
-            detectAndroidWebView();
+            detectAndroid();
             
-            // Ajusta UI para Android
-            if (/Android/i.test(navigator.userAgent)) {
-                els.permissionHelp.style.display = 'block';
+            if (isAndroid) {
+                els.permissionSteps.innerHTML = getPermissionInstructions();
             }
             
-            // ⚠️ Em WebView, o contexto pode não ser seguro - avisa o usuário
-            if (!window.isSecureContext) {
-                console.warn('⚠️ Executando em contexto não seguro - permissões podem ser limitadas');
-            }
-            
-            // ✅ Tenta solicitar permissão de forma "silenciosa" para pré-autorizar
-            // (funciona em alguns WebViews, em outros o usuário precisará clicar no botão)
+            // Teste inicial silencioso de permissão
             try {
-                // Pequeno delay para garantir que a página está totalmente carregada
-                await new Promise(resolve => setTimeout(resolve, 500));
-                const testStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-                testStream.getTracks().forEach(t => t.stop());
+                await new Promise(r => setTimeout(r, 1000));
+                const test = await navigator.mediaDevices.getUserMedia({ audio: true });
+                test.getTracks().forEach(t => t.stop());
                 micPermissionGranted = true;
-                console.log('✅ Permissão de microfone obtida automaticamente');
+                console.log('✅ Permissão obtida');
             } catch (e) {
-                // Era esperado em muitos casos - usuário verá o botão de permissão
-                console.log('ℹ️ Permissão precisará ser solicitada pelo usuário');
+                console.log('ℹ️ Permissão pendente');
             }
         });
     </script>
