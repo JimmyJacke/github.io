@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="theme-color" content="#2563eb">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    
+    <!-- Permissões para Android WebView -->
+    <meta http-equiv="Permissions-Policy" content="microphone=(self)">
+    <meta http-equiv="Feature-Policy" content="microphone 'self'">
+    <meta http-equiv="Content-Security-Policy" content="default-src * 'unsafe-inline' 'unsafe-eval' data: blob:; script-src * 'unsafe-inline' 'unsafe-eval'; connect-src *; media-src *; style-src * 'unsafe-inline'; img-src * data: blob:;">
+    
+    <link rel="manifest" href="manifest.json">
+    <title>🎙️ Transcritor Offline</title>
+    
+    <style>
+        :root {
+            --bg: #f8fafc; --surface: #ffffff; --primary: #2563eb; --primary-hover: #1d4ed8;
+            --success: #16a34a; --warning: #f59e0b; --danger: #dc2626;
+            --text: #0f172a; --text-secondary: #475569; --border: #e2e8f0;
+            --radius: 12px; --shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+            --safe-top: env(safe-area-inset-top); --safe-bottom: env(safe-area-inset-bottom);
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; }
+        
+        body {
+            background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+            color: var(--text); min-height: 100dvh;
+            display: flex; flex-direction: column; align-items: center;
+            padding: calc(16px + var(--safe-top)) 16px calc(16px + var(--safe-bottom));
+            transition: background 0.3s;
+        }
+        
+        .app-container {
+            width: 100%; max-width: 800px; background: var(--surface);
+            border-radius: 16px; box-shadow: var(--shadow); padding: 24px;
+            display: flex; flex-direction: column; gap: 16px;
+        }
+        
+        header { text-align: center; margin-bottom: 8px; }
+        h1 { font-size: clamp(1.25rem, 4vw, 1.75rem); font-weight: 700; color: var(--text); }
+        .subtitle { font-size: 0.9rem; color: var(--text-secondary); margin-top: 4px; }
+        
+        /* Status Bar */
+        .status-bar {
+            display: flex; gap: 8px; flex-wrap: wrap; align-items: center;
+            padding: 10px 14px; border-radius: 10px; font-size: 0.85rem;
+            background: #f1f5f9; border: 1px solid var(--border);
+        }
+        .status-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--text-secondary); display: inline-block; margin-right: 6px; }
+        .status-dot.online { background: var(--success); }
+        .status-dot.offline { background: var(--danger); }
+        .status-dot.mic-ok { background: var(--primary); }
+        .status-dot.mic-blocked { background: var(--warning); }
+        
+        /* Controls */
+        .controls-grid {
+            display: grid; gap: 12px;
+            grid-template-columns: 1fr;
+        }
+        @media (min-width: 640px) { .controls-grid { grid-template-columns: 2fr 1fr 1fr; } }
+        
+        select, button {
+            width: 100%; padding: 14px 16px; border-radius: var(--radius);
+            border: 1px solid var(--border); font-size: 1rem; font-weight: 500;
+            cursor: pointer; transition: all 0.2s; background: #fff;
+        }
+        button { border: none; color: #fff; }
+        button:disabled { opacity: 0.6; cursor: not-allowed; filter: grayscale(0.5); }
+        button:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
+        
+        .btn-primary { background: var(--primary); }
+        .btn-primary:hover:not(:disabled) { background: var(--primary-hover); }
+        .btn-success { background: var(--success); }
+        .btn-warning { background: var(--warning); color: #000; }
+        .btn-danger { background: var(--danger); }
+        .btn-outline { background: #f8fafc; color: var(--text); border: 1px solid var(--border); }
+        
+        /* Record Button */
+        .record-wrapper { display: flex; flex-direction: column; gap: 8px; margin: 8px 0; }
+        .btn-record {
+            height: 64px; font-size: 1.1rem; display: flex; align-items: center; justify-content: center; gap: 8px;
+            background: linear-gradient(135deg, #2563eb 0%, #1e40af 100%);
+        }
+        .btn-record.recording { background: linear-gradient(135deg, #ef4444 0%, #b91c1c 100%); animation: pulse 1.5s infinite; }
+        @keyframes pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.02); } }
+        
+        /* Output & Download */
+        textarea {
+            width: 100%; min-height: 180px; padding: 16px; border: 1px solid var(--border);
+            border-radius: var(--radius); font-size: 1rem; line-height: 1.6;
+            background: #f8fafc; resize: vertical; margin: 8px 0;
+        }
+        textarea:focus { outline: 2px solid var(--primary); background: #fff; }
+        
+        .btn-download { background: var(--success); display: none; margin-top: 8px; }
+        
+        /* Help & Retry */
+        .help-box {
+            background: #fffbeb; border-left: 4px solid var(--warning);
+            padding: 14px; border-radius: 8px; font-size: 0.85rem; line-height: 1.5;
+            display: none; color: #92400e;
+        }
+        .help-box code { background: #fef3c7; padding: 2px 6px; border-radius: 4px; font-family: monospace; }
+        
+        .btn-retry { background: #8b5cf6; display: none; }
+        
+        /* Hidden Video for Android WebView */
+        #mic-video { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+        
+        /* Footer */
+        footer { margin-top: 16px; text-align: center; font-size: 0.75rem; color: var(--text-secondary); }
+        
+        /* Tablet/Desktop Optimizations */
+        @media (min-width: 1024px) {
+            .app-container { padding: 32px; max-width: 900px; }
+            textarea { min-height: 220px; }
+        }
+    </style>
+</head>
+<body>
+    <div class="app-container">
+        <header>
+            <h1>🎙️ Transcritor de Áudio Offline</h1>
+            <div class="subtitle">Whisper Tiny • 100% Local após 1º download</div>
+        </header>
+        
+        <div id="statusBar" class="status-bar">
+            <span class="status-dot offline" id="netDot"></span>
+            <span id="netText">Verificando rede...</span>
+            <span style="margin-left:auto;">🎤 <span id="micText">Aguardando permissão</span></span>
+        </div>
+        
+        <button id="btnMic" class="btn-warning">🔐 Solicitar Acesso ao Microfone</button>
+        <button id="btnRetry" class="btn-retry">🔄 Tentar Novamente (Workaround Android)</button>
+        
+        <div class="controls-grid">
+            <select id="langSelect">
+                <option value="pt">🇧🇷 Português (BR)</option>
+                <option value="en">🇺🇸 English (US)</option>
+                <option value="es">🇪🇸 Español</option>
+                <option value="fr">🇫🇷 Français</option>
+            </select>
+            <button id="btnModel" class="btn-primary" disabled>⏳ Aguardando microfone...</button>
+        </div>
+        
+        <div class="record-wrapper">
+            <button id="btnRecord" class="btn-record" disabled>🔴 Iniciar Gravação</button>
+        </div>
+        
+        <div id="helpBox" class="help-box">
+            💡 <strong>Se o microfone não responder:</strong><br>
+            1. Toque em "🔄 Tentar Novamente"<br>
+            2. Aguarde 2 segundos após clicar em "Permitir"<br>
+            3. Certifique-se que outro app não está usando o microfone<br>
+            <code>Configurações → Apps → [Este App] → Permissões → Microfone → Permitir</code>
+        </div>
+        
+        <textarea id="output" placeholder="A transcrição aparecerá aqui automaticamente..." readonly></textarea>
+        <button id="btnDownload" class="btn-download">📥 Baixar Transcrição (.txt)</button>
+        
+        <footer>
+            Compatível com Android, iOS, Tablets & Desktop • Funciona offline após 1º uso
+        </footer>
+    </div>
+
+    <!-- Workaround obrigatório para Android WebView -->
+    <video id="mic-video" autoplay playsinline muted></video>
+
+    <script type="module">
+        // Estado global
+        const state = {
+            online: navigator.onLine,
+            micGranted: false,
+            micStream: null,
+            transcriber: null,
+            mediaRecorder: null,
+            audioCtx: null,
+            audioChunks: [],
+            isRecording: false,
+            retryCount: 0,
+            maxRetries: 3
+        };
+
+        // Elementos DOM
+        const el = (id) => document.getElementById(id);
+        const ui = {
+            netDot: el('netDot'), netText: el('netText'), micText: el('micText'),
+            btnMic: el('btnMic'), btnRetry: el('btnRetry'), btnModel: el('btnModel'),
+            btnRecord: el('btnRecord'), output: el('output'), btnDownload: el('btnDownload'),
+            helpBox: el('helpBox'), hiddenVideo: el('mic-video')
+        };
+
+        // 🔍 Verificação de rede
+        function updateNetwork() {
+            state.online = navigator.onLine;
+            ui.netDot.className = `status-dot ${state.online ? 'online' : 'offline'}`;
+            ui.netText.textContent = state.online ? '🟢 Online' : '📴 Offline';
+            
+            if (state.online && !state.transcriber) {
+                ui.btnModel.disabled = false;
+                ui.btnModel.textContent = '📥 Baixar Modelo (~40MB)';
+            } else if (!state.online) {
+                ui.btnModel.disabled = true;
+                ui.btnModel.textContent = state.transcriber ? '✅ Modelo em Cache' : '📴 Sem Conexão';
+            }
+        }
+        window.addEventListener('online', updateNetwork);
+        window.addEventListener('offline', updateNetwork);
+        updateNetwork();
+
+        // 🔊 Validação de stream de áudio
+        function validateAudio(stream) {
+            if (!stream) return false;
+            const tracks = stream.getAudioTracks();
+            return tracks.length > 0 && tracks[0].enabled && !tracks[0].muted;
+        }
+
+        // 🔄 Solicitação robusta de microfone (compatível Android WebView)
+        async function requestMic() {
+            ui.btnMic.disabled = true;
+            ui.btnRetry.style.display = 'none';
+            ui.micText.textContent = 'Solicitando acesso...';
+            ui.helpBox.style.display = 'none';
+
+            const constraints = [
+                { audio: { echoCancellation: true, noiseSuppression: true, sampleRate: 16000, channelCount: 1 } },
+                { audio: { echoCancellation: true, noiseSuppression: true } },
+                { audio: true }
+            ];
+
+            for (let i = 0; i < constraints.length; i++) {
+                try {
+                    if (i > 0) await new Promise(r => setTimeout(r, 600));
+                    const stream = await navigator.mediaDevices.getUserMedia(constraints[i]);
+                    
+                    // Workaround Android WebView: vincular ao <video> oculto
+                    ui.hiddenVideo.srcObject = stream;
+                    await ui.hiddenVideo.play().catch(() => {});
+                    
+                    if (validateAudio(stream)) {
+                        state.micStream = stream;
+                        state.micGranted = true;
+                        ui.micText.textContent = '✅ Microfone Ativo';
+                        ui.micDot?.classList.add('mic-ok');
+                        ui.helpBox.style.display = 'none';
+                        return true;
+                    }
+                    stream.getTracks().forEach(t => t.stop());
+                } catch (err) {
+                    console.warn(`Tentativa ${i+1} falhou:`, err.name);
+                    if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+                        ui.micText.textContent = '⛔ Permissão negada';
+                        ui.helpBox.style.display = 'block';
+                        return false;
+                    }
+                }
+            }
+            ui.micText.textContent = '⚠️ Falha na ativação';
+            ui.btnRetry.style.display = 'block';
+            ui.helpBox.style.display = 'block';
+            return false;
+        }
+
+        // 🔄 Retry com delay para sincronização Android 6+
+        ui.btnRetry.addEventListener('click', async () => {
+            if (state.retryCount >= state.maxRetries) {
+                ui.micText.textContent = '⛔ Limite atingido. Reinicie o app.';
+                return;
+            }
+            state.retryCount++;
+            ui.micText.textContent = `🔄 Tentativa ${state.retryCount}/${state.maxRetries}...`;
+            if (state.micStream) { state.micStream.getTracks().forEach(t => t.stop()); state.micStream = null; }
+            await new Promise(r => setTimeout(r, 2000)); // Delay crítico para WebView
+            const ok = await requestMic();
+            ui.btnMic.disabled = !ok;
+            if (ok) ui.btnModel.disabled = false;
+        });
+
+        ui.btnMic.addEventListener('click', async () => {
+            const ok = await requestMic();
+            ui.btnMic.disabled = ok;
+            if (ok) {
+                ui.btnModel.disabled = false;
+                ui.btnRecord.disabled = false;
+            }
+        });
+
+        // 📦 Carregar modelo Whisper
+        ui.btnModel.addEventListener('click', async () => {
+            if (!state.online && !state.transcriber) return updateNetwork();
+            ui.btnModel.disabled = true;
+            ui.btnModel.textContent = '⏳ Carregando modelo...';
+            
+            try {
+                if (!state.transcriber) {
+                    const { pipeline } = await import('https://cdn.jsdelivr.net/npm/@xenova/transformers@2.17.2');
+                    state.transcriber = await pipeline('automatic-speech-recognition', 'Xenova/whisper-tiny', { quantized: true, dtype: 'fp32' });
+                }
+                ui.btnModel.textContent = '✅ Modelo Pronto';
+                ui.btnModel.classList.remove('btn-primary');
+                ui.btnModel.style.background = 'var(--success)';
+                if (state.micGranted) ui.btnRecord.disabled = false;
+            } catch (err) {
+                console.error('Erro ao carregar modelo:', err);
+                ui.btnModel.textContent = '🔄 Tentar Novamente';
+                ui.btnModel.disabled = false;
+                alert('Falha ao baixar modelo. Verifique a conexão e tente novamente.');
+            }
+        });
+
+        // 🎤 Gravação
+        ui.btnRecord.addEventListener('click', async () => {
+            if (!state.isRecording) {
+                if (!state.micGranted && !await requestMic()) return;
+                startRecording();
+            } else {
+                stopRecording();
+            }
+        });
+
+        async function startRecording() {
+            try {
+                if (!state.audioCtx) {
+                    state.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                    if (state.audioCtx.state === 'suspended') await state.audioCtx.resume();
+                }
+                
+                const mimes = ['audio/webm;codecs=opus', 'audio/webm', 'audio/ogg;codecs=opus'];
+                const mime = mimes.find(m => MediaRecorder.isTypeSupported(m)) || '';
+                
+                state.mediaRecorder = new MediaRecorder(state.micStream, { mimeType: mime || undefined });
+                state.audioChunks = [];
+                
+                state.mediaRecorder.ondataavailable = e => { if (e.data.size > 0) state.audioChunks.push(e.data); };
+                state.mediaRecorder.onstop = () => processAudio(new Blob(state.audioChunks, { type: mime || 'audio/webm' }));
+                state.mediaRecorder.onerror = e => {
+                    console.error('Erro MediaRecorder:', e.error);
+                    stopRecording();
+                };
+                
+                state.mediaRecorder.start(100);
+                state.isRecording = true;
+                ui.btnRecord.textContent = '⏹️ Parar Gravação';
+                ui.btnRecord.classList.add('recording');
+                ui.output.value = '';
+                ui.btnDownload.style.display = 'none';
+            } catch (err) {
+                console.error('Falha ao gravar:', err);
+                ui.btnRecord.disabled = true;
+                alert('Erro ao iniciar gravação: ' + err.message);
+            }
+        }
+
+        function stopRecording() {
+            if (state.mediaRecorder && state.mediaRecorder.state !== 'inactive') state.mediaRecorder.stop();
+            state.isRecording = false;
+            ui.btnRecord.textContent = '🔴 Iniciar Gravação';
+            ui.btnRecord.classList.remove('recording');
+            ui.btnRecord.disabled = true;
+        }
+
+        // 📝 Processamento
+        async function processAudio(blob) {
+            try {
+                const arrayBuffer = await blob.arrayBuffer();
+                const audioBuffer = await state.audioCtx.decodeAudioData(arrayBuffer);
+                const targetRate = 16000;
+                
+                const offlineCtx = new OfflineAudioContext(1, audioBuffer.duration * targetRate, targetRate);
+                const source = offlineCtx.createBufferSource();
+                source.buffer = audioBuffer;
+                source.connect(offlineCtx.destination);
+                source.start();
+                const rendered = await offlineCtx.startRendering();
+                const float32Data = rendered.getChannelData(0);
+                
+                ui.btnRecord.textContent = '⏳ Processando...';
+                const lang = el('langSelect').value;
+                const result = await state.transcriber(float32Data, { language: lang, task: 'transcribe' });
+                
+                ui.output.value = result.text.trim();
+                ui.btnRecord.disabled = false;
+                ui.btnDownload.style.display = 'block';
+            } catch (err) {
+                console.error('Erro no processamento:', err);
+                ui.btnRecord.disabled = false;
+                alert('Erro ao transcrever: ' + err.message);
+            }
+        }
+
+        // 💾 Download
+        ui.btnDownload.addEventListener('click', () => {
+            const text = ui.output.value.trim();
+            if (!text) return;
+            const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `transcricao_${el('langSelect').value}_${new Date().toISOString().slice(0,10)}.txt`;
+            document.body.appendChild(a); a.click(); document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        });
+
+        // 🚀 Inicialização
+        window.addEventListener('DOMContentLoaded', () => {
+            if (!navigator.mediaDevices?.getUserMedia) {
+                ui.micText.textContent = '⛔ API não suportada';
+                ui.btnMic.disabled = true; ui.btnRecord.disabled = true;
+                return;
+            }
+            if (/Android 6\.0/i.test(navigator.userAgent)) ui.helpBox.style.display = 'block';
+        });
+    </script>
+</body>
+</html>
