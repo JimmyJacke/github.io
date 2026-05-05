@@ -1,0 +1,1667 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lotofácil Analytics Pro | Análise Completa</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
+    
+    <style>
+        :root {
+            --bg-body: #f3f4f6;
+            --bg-card: #ffffff;
+            --text-main: #1f2937;
+            --text-muted: #6b7280;
+            --primary: #4f46e5;
+            --primary-hover: #4338ca;
+            --secondary: #10b981;
+            --accent: #f59e0b;
+            --danger: #ef4444;
+            --border: #e5e7eb;
+            --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            --ball-gradient: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
+            --ball-cold: linear-gradient(135deg, #9ca3af 0%, #6b7280 100%);
+            --ball-hot: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            --ball-fixed: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+            --ball-fixed-glow: 0 0 0 3px rgba(239, 68, 68, 0.5), 0 6px 20px rgba(220, 38, 38, 0.4);
+            --ball-fixed-border: 2px solid #ffffff;
+            --ball-repeat: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+            --ball-rare: linear-gradient(135deg, #06b6d4 0%, #0891b2 100%);
+            --ball-extra: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
+            --ball-potential: linear-gradient(135deg, #ec4899 0%, #db2777 100%);
+            --freq-high: linear-gradient(135deg, #10b981, #059669);
+            --freq-med-high: linear-gradient(135deg, #3b82f6, #2563eb);
+            --freq-med: linear-gradient(135deg, #f59e0b, #d97706);
+            --freq-med-low: linear-gradient(135deg, #f97316, #ea580c);
+            --freq-low: linear-gradient(135deg, #6b7280, #4b5563);
+        }
+
+        [data-theme="dark"] {
+            --bg-body: #0f172a;
+            --bg-card: #1e293b;
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+            --primary: #6366f1;
+            --primary-hover: #818cf8;
+            --secondary: #34d399;
+            --accent: #fbbf24;
+            --danger: #f87171;
+            --border: #334155;
+            --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.5);
+            --ball-gradient: linear-gradient(135deg, #818cf8 0%, #6366f1 100%);
+            --ball-cold: linear-gradient(135deg, #6b7280 0%, #4b5563 100%);
+            --ball-hot: linear-gradient(135deg, #34d399 0%, #10b981 100%);
+            --ball-fixed: linear-gradient(135deg, #f87171 0%, #ef4444 100%);
+            --ball-fixed-glow: 0 0 0 3px rgba(248, 113, 113, 0.6), 0 6px 20px rgba(239, 68, 68, 0.5);
+            --ball-fixed-border: 2px solid #1e293b;
+            --ball-repeat: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%);
+            --ball-rare: linear-gradient(135deg, #22d3ee 0%, #06b6d4 100%);
+            --ball-extra: linear-gradient(135deg, #a78bfa 0%, #8b5cf6 100%);
+            --ball-potential: linear-gradient(135deg, #f472b6 0%, #ec4899 100%);
+            --freq-high: linear-gradient(135deg, #34d399, #10b981);
+            --freq-med-high: linear-gradient(135deg, #60a5fa, #3b82f6);
+            --freq-med: linear-gradient(135deg, #fbbf24, #f59e0b);
+            --freq-med-low: linear-gradient(135deg, #fb923c, #f97316);
+            --freq-low: linear-gradient(135deg, #94a3b8, #6b7280);
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Inter', sans-serif; }
+        
+        body {
+            background-color: var(--bg-body);
+            color: var(--text-main);
+            transition: background-color 0.4s ease, color 0.4s ease;
+            min-height: 100vh;
+            padding-bottom: 50px;
+        }
+
+        header {
+            background: var(--bg-card);
+            border-bottom: 1px solid var(--border);
+            padding: 1rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            box-shadow: var(--shadow);
+        }
+
+        .logo {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--primary);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .theme-btn {
+            background: transparent;
+            border: 2px solid var(--border);
+            color: var(--text-main);
+            padding: 0.5rem 1rem;
+            border-radius: 20px;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-weight: 600;
+        }
+        .theme-btn:hover { border-color: var(--primary); color: var(--primary); }
+
+        .container {
+            max-width: 1400px;
+            margin: 2rem auto;
+            padding: 0 1rem;
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 2rem;
+        }
+
+        @media(min-width: 1100px) { .container { grid-template-columns: 400px 1fr; } }
+
+        .card {
+            background: var(--bg-card);
+            border-radius: 16px;
+            padding: 1.5rem;
+            box-shadow: var(--shadow);
+            border: 1px solid var(--border);
+            transition: transform 0.3s ease;
+        }
+        
+        .card-header {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 1.5rem;
+            padding-bottom: 1rem;
+            border-bottom: 1px solid var(--border);
+        }
+        
+        .card-header h2 { font-size: 1.25rem; font-weight: 600; }
+        .card-header i { color: var(--primary); font-size: 1.2rem; }
+
+        .form-group { margin-bottom: 1.2rem; }
+        
+        label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-size: 0.9rem;
+            font-weight: 600;
+            color: var(--text-muted);
+        }
+
+        input[type="number"], input[type="file"], select {
+            width: 100%;
+            padding: 0.75rem;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            background: var(--bg-body);
+            color: var(--text-main);
+            font-size: 1rem;
+            transition: border-color 0.3s;
+        }
+
+        input:focus, select:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.15); }
+        input:invalid { border-color: var(--danger); }
+        input:invalid:focus { box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.2); }
+
+        .file-drop-area {
+            border: 2px dashed var(--border);
+            border-radius: 12px;
+            padding: 2rem;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s;
+            position: relative;
+        }
+        .file-drop-area:hover { border-color: var(--primary); background: rgba(79, 70, 229, 0.05); }
+        .file-drop-area i { font-size: 2rem; color: var(--text-muted); margin-bottom: 10px; }
+        .file-msg { font-size: 0.9rem; color: var(--text-muted); }
+        input[type="file"] {
+            position: absolute; left: 0; top: 0; height: 100%; width: 100%; opacity: 0; cursor: pointer;
+        }
+
+        .btn {
+            width: 100%;
+            padding: 0.85rem;
+            border: none;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 8px;
+            transition: transform 0.2s, filter 0.2s;
+        }
+        .btn:active { transform: scale(0.98); }
+        .btn-primary { background: var(--primary); color: white; }
+        .btn-primary:hover { background: var(--primary-hover); }
+        .btn-success { background: var(--secondary); color: white; }
+        .btn-outline { background: transparent; border: 1px solid var(--border); color: var(--text-main); }
+        .btn-outline:hover { background: var(--bg-body); }
+
+        .results-section { display: none; animation: fadeIn 0.5s ease; }
+        .results-section.active { display: block; }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(70px, 1fr));
+            gap: 10px;
+            margin-bottom: 2rem;
+        }
+
+        .stat-item {
+            background: var(--bg-body);
+            padding: 10px;
+            border-radius: 10px;
+            text-align: center;
+            border: 1px solid var(--border);
+            transition: all 0.2s;
+            position: relative;
+        }
+        .stat-item:hover { transform: translateY(-2px); box-shadow: var(--shadow); }
+        .stat-num { font-size: 1.2rem; font-weight: 700; color: var(--text-main); }
+        .stat-freq { font-size: 0.7rem; color: var(--text-muted); }
+        .stat-pct { font-size: 0.65rem; color: var(--text-muted); margin-top: 2px; }
+        
+        /* Indicador visual para números da base */
+        .stat-item.is-base {
+            border: 2px solid var(--danger);
+            background: linear-gradient(135deg, rgba(239, 68, 68, 0.15), rgba(220, 38, 38, 0.1));
+        }
+        .stat-item.is-base::after {
+            content: '🔴';
+            position: absolute;
+            top: 4px;
+            right: 6px;
+            font-size: 0.7rem;
+            animation: pulse 2s infinite;
+        }
+
+        .balls-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            justify-content: flex-start;
+            margin: 1rem 0;
+            min-height: 44px;
+        }
+
+        .ball {
+            width: 42px;
+            height: 42px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 800;
+            color: white;
+            font-size: 1rem;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.25);
+            animation: popIn 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+            opacity: 0;
+            transform: scale(0.5);
+            position: relative;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+            z-index: 1;
+        }
+        .ball:hover { transform: scale(1.2); z-index: 20; }
+        
+        /* === CORREÇÃO: Números Fixos com destaque máximo === */
+        .ball.fixed {
+            background: var(--ball-fixed) !important;
+            box-shadow: var(--ball-fixed-glow) !important;
+            border: var(--ball-fixed-border) !important;
+            animation: pulse 1.5s infinite, popIn 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards !important;
+            font-weight: 900 !important;
+            text-shadow: 0 1px 2px rgba(0,0,0,0.3);
+            z-index: 15 !important;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { 
+                box-shadow: var(--ball-fixed-glow);
+                transform: scale(1);
+            }
+            50% { 
+                box-shadow: 0 0 0 5px rgba(239, 68, 68, 0.7), 0 8px 25px rgba(220, 38, 38, 0.5);
+                transform: scale(1.05);
+            }
+        }
+
+        .ball.regular { background: var(--ball-gradient); }
+        .ball.cold { background: var(--ball-cold); }
+        .ball.hot { background: var(--ball-hot); }
+        .ball.repeat { background: var(--ball-repeat); }
+        .ball.rare { background: var(--ball-rare); }
+        .ball.extra { background: var(--ball-extra); }
+        .ball.potential { background: var(--ball-potential); }
+
+        .ball .tooltip {
+            position: absolute;
+            bottom: -35px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: var(--text-main);
+            color: var(--bg-card);
+            padding: 5px 10px;
+            border-radius: 8px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            white-space: nowrap;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.2s;
+            z-index: 30;
+            box-shadow: var(--shadow);
+            border: 1px solid var(--border);
+        }
+        .ball:hover .tooltip { opacity: 1; }
+        .ball.fixed .tooltip {
+            background: var(--danger);
+            color: white;
+            border-color: #b91c1c;
+        }
+
+        .legend {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            margin: 1rem 0;
+            padding: 1rem;
+            background: var(--bg-body);
+            border-radius: 8px;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.85rem;
+            color: var(--text-muted);
+        }
+
+        .legend-ball {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.65rem;
+            color: white;
+            font-weight: 700;
+        }
+
+        .sequence-card {
+            background: var(--bg-body);
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin-bottom: 1rem;
+            border-left: 5px solid var(--primary);
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            animation: slideUp 0.5s ease forwards;
+            opacity: 0;
+        }
+
+        .sequence-card.extra-game {
+            border-left-color: var(--ball-extra);
+            background: linear-gradient(135deg, rgba(139, 92, 246, 0.12) 0%, var(--bg-body) 100%);
+        }
+
+        .seq-header { 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center; 
+            flex-wrap: wrap; 
+            gap: 10px;
+            padding-bottom: 8px;
+            border-bottom: 1px dashed var(--border);
+        }
+        .seq-title { 
+            font-weight: 700; 
+            color: var(--text-main); 
+            display: flex; 
+            align-items: center; 
+            gap: 10px;
+            font-size: 1.1rem;
+        }
+        .seq-title .fixed-badge {
+            background: var(--ball-fixed);
+            color: white;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.75rem;
+            font-weight: 700;
+            animation: pulse 2s infinite;
+            box-shadow: 0 2px 8px rgba(220, 38, 38, 0.4);
+            border: 1px solid white;
+        }
+        .seq-badge {
+            background: var(--ball-extra);
+            color: white;
+            padding: 3px 10px;
+            border-radius: 12px;
+            font-size: 0.7rem;
+            font-weight: 600;
+        }
+        .copy-btn {
+            background: none; 
+            border: none; 
+            color: var(--text-muted); 
+            cursor: pointer; 
+            font-size: 0.9rem;
+            padding: 4px 8px;
+            border-radius: 6px;
+            transition: all 0.2s;
+        }
+        .copy-btn:hover { 
+            color: var(--primary); 
+            background: var(--bg-card);
+        }
+
+        .freq-analysis {
+            background: var(--bg-body);
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin: 1.5rem 0;
+        }
+
+        .freq-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(60px, 1fr));
+            gap: 8px;
+            margin-top: 1rem;
+        }
+
+        .freq-item {
+            background: var(--bg-card);
+            padding: 10px 6px;
+            border-radius: 10px;
+            text-align: center;
+            border: 1px solid var(--border);
+            transition: all 0.2s;
+        }
+        .freq-item:hover { transform: translateY(-2px); box-shadow: var(--shadow); }
+        .freq-num { font-size: 1.1rem; font-weight: 800; color: var(--text-main); }
+        .freq-count { font-size: 0.75rem; color: var(--text-muted); }
+        .freq-pct { font-size: 0.7rem; color: var(--text-muted); font-weight: 600; }
+
+        .top-section {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+        @media(min-width: 768px) { .top-section { grid-template-columns: 1fr 1fr; } }
+
+        .top-card {
+            background: var(--bg-card);
+            border-radius: 16px;
+            padding: 1.5rem;
+            box-shadow: var(--shadow);
+            border: 1px solid var(--border);
+        }
+        .top-card.hot { border-top: 4px solid var(--ball-hot); }
+        .top-card.cold { border-top: 4px solid var(--ball-cold); }
+        .top-card.potential { border-top: 4px solid var(--ball-potential); }
+
+        .top-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(65px, 1fr));
+            gap: 12px;
+        }
+
+        .top-item {
+            text-align: center;
+            padding: 12px 6px;
+            border-radius: 12px;
+            background: var(--bg-body);
+            transition: all 0.2s;
+            position: relative;
+            overflow: hidden;
+            border: 1px solid var(--border);
+        }
+        .top-item::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0;
+            height: 3px;
+            background: var(--gradient);
+        }
+        .top-item:hover { transform: translateY(-3px); box-shadow: var(--shadow); }
+        .top-num { font-size: 1.5rem; font-weight: 800; color: var(--text-main); position: relative; z-index: 1; }
+        .top-rank { 
+            font-size: 0.65rem; 
+            color: white; 
+            background: var(--gradient);
+            padding: 2px 6px;
+            border-radius: 8px;
+            position: absolute; 
+            top: 5px; 
+            right: 6px;
+            font-weight: 700;
+        }
+        .top-pct { font-size: 0.75rem; color: var(--text-muted); margin-top: 5px; position: relative; z-index: 1; font-weight: 600; }
+        .top-freq { font-size: 0.7rem; color: var(--text-muted); position: relative; z-index: 1; }
+
+        .top-item.grad-1 { --gradient: var(--freq-high); }
+        .top-item.grad-2 { --gradient: var(--freq-high); }
+        .top-item.grad-3 { --gradient: var(--freq-high); }
+        .top-item.grad-4 { --gradient: var(--freq-med-high); }
+        .top-item.grad-5 { --gradient: var(--freq-med-high); }
+        .top-item.grad-6 { --gradient: var(--freq-med-high); }
+        .top-item.grad-7 { --gradient: var(--freq-med); }
+        .top-item.grad-8 { --gradient: var(--freq-med); }
+        .top-item.grad-9 { --gradient: var(--freq-med); }
+        .top-item.grad-10 { --gradient: var(--freq-med-low); }
+        .top-item.grad-11 { --gradient: var(--freq-med-low); }
+        .top-item.grad-12 { --gradient: var(--freq-med-low); }
+        .top-item.grad-13 { --gradient: var(--freq-low); }
+        .top-item.grad-14 { --gradient: var(--freq-low); }
+        .top-item.grad-15 { --gradient: var(--freq-low); }
+
+        .full-freq-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(115px, 1fr));
+            gap: 12px;
+            margin-top: 1rem;
+        }
+        
+        .full-freq-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 14px 10px;
+            border-radius: 12px;
+            border: 1px solid var(--border);
+            transition: all 0.2s;
+            position: relative;
+            overflow: hidden;
+            background: var(--bg-card);
+        }
+        .full-freq-item::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0;
+            height: 4px;
+            background: var(--item-gradient);
+        }
+        .full-freq-item:hover { transform: translateY(-3px); box-shadow: var(--shadow); }
+        
+        .full-freq-num { 
+            font-weight: 800; 
+            font-size: 1.4rem; 
+            color: var(--text-main);
+            margin-bottom: 6px;
+            position: relative;
+            z-index: 1;
+        }
+        .full-freq-bar {
+            width: 100%;
+            height: 8px;
+            background: var(--border);
+            border-radius: 4px;
+            margin: 8px 0;
+            overflow: hidden;
+            position: relative;
+        }
+        .full-freq-fill {
+            height: 100%;
+            border-radius: 4px;
+            background: var(--item-gradient);
+            transition: width 0.5s ease;
+        }
+        .full-freq-stats {
+            display: flex;
+            justify-content: space-between;
+            width: 100%;
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            position: relative;
+            z-index: 1;
+        }
+        .full-freq-pct { font-weight: 700; color: var(--text-main); }
+
+        .toast {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: var(--bg-card);
+            color: var(--text-main);
+            padding: 1rem 1.5rem;
+            border-radius: 10px;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.15);
+            border-left: 5px solid var(--secondary);
+            transform: translateY(100px);
+            transition: transform 0.3s cubic-bezier(0.68, -0.55, 0.27, 1.55);
+            z-index: 1000;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-weight: 500;
+        }
+        .toast.show { transform: translateY(0); }
+
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes slideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes popIn { to { opacity: 1; transform: scale(1); } }
+
+        .spinner {
+            border: 3px solid rgba(0,0,0,0.1);
+            border-radius: 50%;
+            border-top: 3px solid var(--primary);
+            width: 20px;
+            height: 20px;
+            animation: spin 1s linear infinite;
+            display: none;
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+        .validation-msg {
+            font-size: 0.75rem;
+            color: var(--danger);
+            margin-top: 0.3rem;
+            display: none;
+        }
+        .validation-msg.show { display: block; }
+
+        /* === CORREÇÃO: Tabs com Sequências primeiro === */
+        .tabs {
+            display: flex;
+            gap: 0.5rem;
+            margin-bottom: 1.5rem;
+            flex-wrap: wrap;
+            background: var(--bg-card);
+            padding: 0.5rem;
+            border-radius: 12px;
+            border: 1px solid var(--border);
+        }
+        .tab-btn {
+            padding: 0.7rem 1.3rem;
+            border: none;
+            border-radius: 10px;
+            background: var(--bg-body);
+            color: var(--text-muted);
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 0.9rem;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .tab-btn.active {
+            background: var(--primary);
+            color: white;
+            box-shadow: 0 2px 8px rgba(79, 70, 229, 0.3);
+        }
+        .tab-btn:hover:not(.active) {
+            background: var(--border);
+            color: var(--text-main);
+        }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; animation: fadeIn 0.3s ease; }
+
+        .mode-selector {
+            display: flex;
+            gap: 0.5rem;
+            margin-top: 0.5rem;
+        }
+        .mode-btn {
+            flex: 1;
+            padding: 0.7rem;
+            border: 2px solid var(--border);
+            border-radius: 10px;
+            background: var(--bg-body);
+            color: var(--text-muted);
+            cursor: pointer;
+            font-size: 0.85rem;
+            font-weight: 600;
+            transition: all 0.2s;
+            text-align: center;
+        }
+        .mode-btn:hover { border-color: var(--primary); }
+        .mode-btn.active {
+            border-color: var(--primary);
+            background: var(--primary);
+            color: white;
+            box-shadow: 0 2px 8px rgba(79, 70, 229, 0.3);
+        }
+        .mode-btn.cold.active { border-color: var(--ball-cold); background: var(--ball-cold); }
+        .mode-btn.hot.active { border-color: var(--ball-hot); background: var(--ball-hot); }
+        .mode-btn.mixed.active { border-color: var(--primary); background: var(--primary); }
+
+        @media(max-width: 768px) {
+            header { padding: 1rem; }
+            .container { padding: 0 0.5rem; }
+            .card { padding: 1.2rem; }
+            .ball { width: 38px; height: 38px; font-size: 0.9rem; }
+            .stat-num { font-size: 1rem; }
+            .top-grid { grid-template-columns: repeat(5, 1fr); }
+            .full-freq-list { grid-template-columns: repeat(2, 1fr); }
+            .tabs { flex-wrap: wrap; }
+            .tab-btn { padding: 0.6rem 1rem; font-size: 0.85rem; }
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <div class="logo">
+            <i class="fa-solid fa-chart-pie"></i>
+            <span>LotoAnalytics Pro</span>
+        </div>
+        <button class="theme-btn" onclick="toggleTheme()">
+            <i class="fa-solid fa-moon"></i> <span id="theme-text">Escuro</span>
+        </button>
+    </header>
+
+    <div class="container">
+        <aside>
+            <div class="card">
+                <div class="card-header">
+                    <i class="fa-solid fa-file-import"></i>
+                    <h2>1. Carregar Dados</h2>
+                </div>
+                <div class="form-group">
+                    <div class="file-drop-area">
+                        <i class="fa-solid fa-cloud-arrow-up"></i>
+                        <div class="file-msg">Arraste seu Excel ou clique aqui</div>
+                        <input type="file" id="fileInput" accept=".xlsx, .xls">
+                    </div>
+                    <div id="fileStatus" style="margin-top: 10px; font-size: 0.85rem; color: var(--secondary); display: none;">
+                        <i class="fa-solid fa-check-circle"></i> <span id="fileName"></span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card" style="margin-top: 2rem;">
+                <div class="card-header">
+                    <i class="fa-solid fa-sliders"></i>
+                    <h2>2. Configurar Análise</h2>
+                </div>
+                
+                <div class="form-group">
+                    <label for="seqLength">🔢 Quantidade de Números por Sequência</label>
+                    <input type="number" id="seqLength" value="15" min="15" max="20" required>
+                    <small id="seqLengthHelp" style="color: var(--text-muted); font-size: 0.75rem;">
+                        Mínimo: 15, Máximo: 20 números
+                    </small>
+                    <div id="seqLengthError" class="validation-msg">
+                        <i class="fa-solid fa-triangle-exclamation"></i> Valor deve estar entre 15 e 20
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>🎯 Tipo de Análise para Base</label>
+                    <div class="mode-selector">
+                        <button class="mode-btn cold active" onclick="setAnalysisMode('cold', this)">
+                            ❄️ Frios
+                        </button>
+                        <button class="mode-btn hot" onclick="setAnalysisMode('hot', this)">
+                            🔥 Quentes
+                        </button>
+                        <button class="mode-btn mixed" onclick="setAnalysisMode('mixed', this)">
+                            ⚖️ Mistos
+                        </button>
+                    </div>
+                    <small id="modeHelp" style="color: var(--text-muted); font-size: 0.75rem; display: block; margin-top: 6px;">
+                        <strong>Frios:</strong> Baseia nos que menos saíram<br>
+                        <strong>Quentes:</strong> Baseia nos que mais saíram<br>
+                        <strong>Mistos:</strong> Combina frequências com probabilidade
+                    </small>
+                </div>
+                
+                <div class="form-group">
+                    <label>Últimos Jogos para Analisar</label>
+                    <input type="number" id="gamesCount" placeholder="Ex: 10 (Deixe vazio para todos)">
+                </div>
+                <div class="form-group">
+                    <label>Qtd. Números na Base</label>
+                    <input type="number" id="baseCount" value="8" min="1" max="25">
+                    <small id="baseHelp" style="color: var(--text-muted); font-size: 0.75rem;">
+                        Números que formarão a base das sequências
+                    </small>
+                </div>
+                <div class="form-group">
+                    <label>Sequências para Gerar</label>
+                    <input type="number" id="seqCount" value="5" min="1">
+                </div>
+                <button class="btn btn-primary" onclick="processAnalysis()">
+                    <span class="spinner" id="btnSpinner"></span>
+                    <span id="btnText">Gerar Análise Completa</span>
+                </button>
+            </div>
+        </aside>
+
+        <main>
+            <div id="welcomeState" class="card" style="text-align: center; padding: 4rem 2rem;">
+                <i class="fa-solid fa-laptop-code" style="font-size: 4rem; color: var(--border); margin-bottom: 1rem;"></i>
+                <h2 style="color: var(--text-main);">Pronto para Analisar</h2>
+                <p style="color: var(--text-muted); margin-bottom: 1.5rem;">Carregue sua planilha e configure para acessar:</p>
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; text-align: left;">
+                    <div style="background: var(--bg-body); padding: 1rem; border-radius: 10px;">
+                        <strong style="color: var(--ball-hot);">🔥 Top 15 Mais Frequentes</strong>
+                        <p style="font-size: 0.85rem; color: var(--text-muted); margin-top: 0.3rem;">Com percentual e gradiente de cor</p>
+                    </div>
+                    <div style="background: var(--bg-body); padding: 1rem; border-radius: 10px;">
+                        <strong style="color: var(--ball-cold);">❄️ Top 15 Menos Frequentes</strong>
+                        <p style="font-size: 0.85rem; color: var(--text-muted); margin-top: 0.3rem;">Com percentual e gradiente de cor</p>
+                    </div>
+                    <div style="background: var(--bg-body); padding: 1rem; border-radius: 10px;">
+                        <strong style="color: var(--ball-potential);">🎯 Top 10 Maior Potencial</strong>
+                        <p style="font-size: 0.85rem; color: var(--text-muted); margin-top: 0.3rem;">Probabilidade ponderada</p>
+                    </div>
+                    <div style="background: var(--bg-body); padding: 1rem; border-radius: 10px;">
+                        <strong style="color: var(--primary);">📊 Todos (1-25) com %</strong>
+                        <p style="font-size: 0.85rem; color: var(--text-muted); margin-top: 0.3rem;">Frequência + barra visual + percentual</p>
+                    </div>
+                </div>
+            </div>
+
+            <div id="resultsState" class="results-section">
+                
+                <!-- === CORREÇÃO: Sequências como PRIMEIRA aba === -->
+                <div class="tabs">
+                    <button class="tab-btn active" onclick="switchTab('sequences')">🎲 Sequências</button>
+                    <button class="tab-btn" onclick="switchTab('stats')">📊 Estatísticas</button>
+                    <button class="tab-btn" onclick="switchTab('cold')">❄️ Números Frios</button>
+                    <button class="tab-btn" onclick="switchTab('full')">📋 Lista Completa</button>
+                </div>
+
+                <!-- Tab: Sequências (AGORA PRIMEIRA) -->
+                <div id="tab-sequences" class="tab-content active">
+                    <div class="card" style="margin-bottom: 2rem;">
+                        <div class="card-header">
+                            <i class="fa-solid fa-circle-info" style="color: var(--text-muted);"></i>
+                            <h2>Legenda das Cores</h2>
+                        </div>
+                        <div class="legend">
+                            <div class="legend-item">
+                                <div class="legend-ball fixed" style="animation: pulse 2s infinite;">🔴</div>
+                                <span><strong>Número Fixo</strong> (Base da análise) - Destaque animado</span>
+                            </div>
+                            <div class="legend-item">
+                                <div class="legend-ball" style="background: var(--ball-repeat);">🟠</div>
+                                <span>Repetido em +1 sequência</span>
+                            </div>
+                            <div class="legend-item">
+                                <div class="legend-ball" style="background: var(--ball-rare);">🔷</div>
+                                <span>Menos frequente nas sequências</span>
+                            </div>
+                            <div class="legend-item">
+                                <div class="legend-ball" style="background: var(--ball-gradient);">🔵</div>
+                                <span>Número Regular</span>
+                            </div>
+                            <div class="legend-item">
+                                <div class="legend-ball" style="background: var(--ball-extra);">🟣</div>
+                                <span>Jogo Extra (Análise)</span>
+                            </div>
+                            <div class="legend-item">
+                                <div class="legend-ball" style="background: var(--ball-potential);">💗</div>
+                                <span>Alto Potencial Estatístico</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">
+                            <i class="fa-solid fa-list-ol"></i>
+                            <h2>Sequências Sugeridas</h2>
+                            <button class="btn btn-success" style="width: auto; padding: 0.5rem 1rem; font-size: 0.8rem;" onclick="downloadResults()">
+                                <i class="fa-solid fa-download"></i> Baixar .TXT
+                            </button>
+                        </div>
+                        <div id="sequencesList"></div>
+                    </div>
+
+                    <div class="card freq-analysis" id="freqAnalysisCard" style="display: none;">
+                        <div class="card-header">
+                            <i class="fa-solid fa-chart-bar" style="color: var(--ball-rare);"></i>
+                            <h2>Análise de Frequência nas Sequências</h2>
+                        </div>
+                        <p style="color: var(--text-muted); margin-bottom: 1rem;">
+                            Números ordenados por frequência nas sequências geradas.
+                        </p>
+                        <div class="freq-grid" id="freqGrid"></div>
+                    </div>
+
+                    <div class="card" id="extraGamesCard" style="display: none;">
+                        <div class="card-header">
+                            <i class="fa-solid fa-star" style="color: var(--ball-extra);"></i>
+                            <h2>Jogos Extras (Baseado nos Menos Frequentes)</h2>
+                        </div>
+                        <p style="color: var(--text-muted); margin-bottom: 1rem;">
+                            2 jogos adicionais gerados a partir dos números que <strong>MENOS</strong> se repetiram.
+                        </p>
+                        <div id="extraGamesList"></div>
+                    </div>
+                </div>
+
+                <!-- Tab: Estatísticas -->
+                <div id="tab-stats" class="tab-content">
+                    <div class="top-section">
+                        <div class="top-card hot">
+                            <div class="card-header" style="margin-bottom: 1rem; padding-bottom: 0.5rem; border-bottom: 1px solid var(--border);">
+                                <i class="fa-solid fa-fire" style="color: var(--ball-hot);"></i>
+                                <h2>🔥 Top 15 Mais Frequentes</h2>
+                            </div>
+                            <div class="top-grid" id="top15Grid"></div>
+                        </div>
+
+                        <div class="top-card cold">
+                            <div class="card-header" style="margin-bottom: 1rem; padding-bottom: 0.5rem; border-bottom: 1px solid var(--border);">
+                                <i class="fa-solid fa-snowflake" style="color: var(--ball-cold);"></i>
+                                <h2>❄️ Top 15 Menos Frequentes</h2>
+                            </div>
+                            <div class="top-grid" id="bottom15Grid"></div>
+                        </div>
+                    </div>
+
+                    <div class="top-card potential">
+                        <div class="card-header">
+                            <i class="fa-solid fa-bullseye" style="color: var(--ball-potential);"></i>
+                            <h2>🎯 Top 10 Maior Potencial</h2>
+                        </div>
+                        <p style="color: var(--text-muted); margin-bottom: 1rem; font-size: 0.9rem;">
+                            Calculado com frequência histórica + probabilidade ponderada
+                        </p>
+                        <div class="top-grid" id="potentialGrid"></div>
+                    </div>
+                </div>
+
+                <!-- Tab: Números Frios -->
+                <div id="tab-cold" class="tab-content">
+                    <div class="card" style="margin-bottom: 2rem;">
+                        <div class="card-header">
+                            <i class="fa-solid fa-snowflake" style="color: var(--accent);"></i>
+                            <h2>Análise de 25 Números por Frequência</h2>
+                        </div>
+                        <p style="color: var(--text-muted); margin-bottom: 1rem;">
+                            Números ordenados do <strong>menos para o mais frequente</strong> no período analisado.
+                        </p>
+                        
+                        <div class="stats-grid" id="coldNumbersGrid"></div>
+
+                        <div style="background: var(--bg-body); padding: 1rem; border-radius: 8px; margin-top: 1rem;">
+                            <strong style="color: var(--primary);">Base Selecionada (<span id="baseModeLabel">Frios</span>):</strong>
+                            <div class="balls-container" id="selectedBaseDisplay"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tab: Lista Completa -->
+                <div id="tab-full" class="tab-content">
+                    <div class="card">
+                        <div class="card-header">
+                            <i class="fa-solid fa-list" style="color: var(--primary);"></i>
+                            <h2>Todos os Números (1-25) - Frequência Completa</h2>
+                        </div>
+                        <p style="color: var(--text-muted); margin-bottom: 1rem;">
+                            Lista em ordem crescente com <strong>barra visual de frequência</strong> e percentual de ocorrência.
+                        </p>
+                        <div class="full-freq-list" id="fullFreqList"></div>
+                    </div>
+                </div>
+
+            </div>
+        </main>
+    </div>
+
+    <div id="toast" class="toast">
+        <i class="fa-solid fa-circle-check" style="color: var(--secondary);"></i>
+        <span id="toastMsg">Operação realizada com sucesso!</span>
+    </div>
+
+    <script>
+        // --- State Management ---
+        let excelData = null;
+        let bolaColumns = [];
+        let generatedSequences = [];
+        let extraGames = [];
+        let fixedBaseNumbers = [];
+        let numberFrequency = {};
+        let leastFrequentNumbers = [];
+        let allFrequencies = {};
+        let probabilities = {};
+        let isDark = false;
+        let existingSequencesSet = new Set();
+        let analysisMode = 'cold';
+
+        // --- Theme Toggle ---
+        function toggleTheme() {
+            isDark = !isDark;
+            document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light');
+            const icon = document.querySelector('.theme-btn i');
+            const text = document.getElementById('theme-text');
+            
+            if(isDark) {
+                icon.className = 'fa-solid fa-sun';
+                text.innerText = 'Claro';
+            } else {
+                icon.className = 'fa-solid fa-moon';
+                text.innerText = 'Escuro';
+            }
+            localStorage.setItem('theme', isDark ? 'dark' : 'light');
+        }
+
+        if(localStorage.getItem('theme') === 'dark') toggleTheme();
+
+        // === CORREÇÃO: Tab switching com Sequências como padrão ===
+        function switchTab(tabName) {
+            document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+            event.currentTarget.classList.add('active');
+            document.getElementById(`tab-${tabName}`).classList.add('active');
+        }
+
+        // --- Analysis Mode Selection ---
+        function setAnalysisMode(mode, btn) {
+            analysisMode = mode;
+            document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            
+            const label = document.getElementById('baseModeLabel');
+            const help = document.getElementById('baseHelp');
+            
+            if(mode === 'cold') {
+                label.innerText = 'Frios';
+                help.innerHTML = 'Serão selecionados os <strong>que menos saíram</strong> no período';
+            } else if(mode === 'hot') {
+                label.innerText = 'Quentes';
+                help.innerHTML = 'Serão selecionados os <strong>que mais saíram</strong> no período';
+            } else {
+                label.innerText = 'Mistos';
+                help.innerHTML = 'Combinação equilibrada com <strong>probabilidade ponderada</strong>';
+            }
+        }
+
+        // --- UI Helpers ---
+        function showToast(msg, type = 'success') {
+            const toast = document.getElementById('toast');
+            const toastMsg = document.getElementById('toastMsg');
+            const icon = toast.querySelector('i');
+            
+            toastMsg.innerText = msg;
+            icon.className = type === 'error' ? 'fa-solid fa-circle-exclamation' : 'fa-solid fa-circle-check';
+            icon.style.color = type === 'error' ? 'var(--danger)' : 'var(--secondary)';
+            toast.style.borderLeftColor = type === 'error' ? 'var(--danger)' : 'var(--secondary)';
+            
+            toast.classList.add('show');
+            setTimeout(() => toast.classList.remove('show'), 3000);
+        }
+
+        function showLoading(isLoading) {
+            const spinner = document.getElementById('btnSpinner');
+            const text = document.getElementById('btnText');
+            const btn = document.querySelector('.btn-primary');
+            
+            if(isLoading) {
+                spinner.style.display = 'block';
+                text.innerText = 'Processando...';
+                btn.disabled = true;
+                btn.style.opacity = '0.7';
+            } else {
+                spinner.style.display = 'none';
+                text.innerText = 'Gerar Análise Completa';
+                btn.disabled = false;
+                btn.style.opacity = '1';
+            }
+        }
+
+        function validateSeqLength(value) {
+            const num = parseInt(value);
+            const errorEl = document.getElementById('seqLengthError');
+            const helpEl = document.getElementById('seqLengthHelp');
+            
+            if (isNaN(num) || num < 15 || num > 20) {
+                errorEl.classList.add('show');
+                helpEl.style.color = 'var(--danger)';
+                return false;
+            }
+            errorEl.classList.remove('show');
+            helpEl.style.color = 'var(--text-muted)';
+            return true;
+        }
+
+        document.getElementById('seqLength').addEventListener('input', e => validateSeqLength(e.target.value));
+        document.getElementById('seqLength').addEventListener('blur', e => validateSeqLength(e.target.value));
+
+        // --- File Handling ---
+        document.getElementById('fileInput').addEventListener('change', async (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            try {
+                const data = await file.arrayBuffer();
+                const workbook = XLSX.read(data, { type: 'array' });
+                const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+                excelData = XLSX.utils.sheet_to_json(firstSheet, { header: 1 });
+
+                if (excelData.length > 0) {
+                    const headers = excelData[0];
+                    bolaColumns = headers.map((h, i) => (h && h.toString().toLowerCase().includes('bola')) ? i : -1).filter(i => i !== -1);
+                    
+                    if (bolaColumns.length === 0) throw new Error("Colunas 'Bola' não encontradas.");
+
+                    document.getElementById('fileName').innerText = `${file.name} (${excelData.length - 1} jogos)`;
+                    document.getElementById('fileStatus').style.display = 'block';
+                    
+                    extractExistingSequences();
+                    extractFrequencies();
+                    
+                    showToast('Arquivo carregado com sucesso!');
+                }
+            } catch (err) {
+                showToast(err.message, 'error');
+                excelData = null;
+            }
+        });
+
+        function extractExistingSequences() {
+            existingSequencesSet = new Set();
+            if (!excelData || excelData.length < 2) return;
+            
+            for (let i = 1; i < excelData.length; i++) {
+                const row = excelData[i];
+                const seq = [];
+                bolaColumns.forEach(col => {
+                    const val = row[col];
+                    if (val && !isNaN(val)) seq.push(parseInt(val));
+                });
+                if (seq.length >= 15) {
+                    seq.sort((a, b) => a - b);
+                    existingSequencesSet.add(seq.join(','));
+                }
+            }
+        }
+
+        function extractFrequencies() {
+            allFrequencies = {};
+            for(let i = 1; i <= 25; i++) allFrequencies[i] = 0;
+            
+            if (!excelData || excelData.length < 2) return;
+            
+            for (let i = 1; i < excelData.length; i++) {
+                const row = excelData[i];
+                bolaColumns.forEach(col => {
+                    const val = row[col];
+                    if (val && !isNaN(val)) {
+                        const num = parseInt(val);
+                        if (num >= 1 && num <= 25) allFrequencies[num] = (allFrequencies[num] || 0) + 1;
+                    }
+                });
+            }
+            
+            const total = Object.values(allFrequencies).reduce((a, b) => a + b, 0);
+            probabilities = {};
+            for(let i = 1; i <= 25; i++) {
+                probabilities[i] = (allFrequencies[i] + 0.1) / (total + 2.5);
+            }
+            
+            renderTop15MostFrequent();
+            renderTop15LeastFrequent();
+            renderTop10Potential();
+            renderFullFrequencyList();
+        }
+
+        function sequenceExists(sequence) {
+            const seqStr = [...sequence].sort((a, b) => a - b).join(',');
+            return existingSequencesSet.has(seqStr);
+        }
+
+        // --- Core Logic ---
+        async function processAnalysis() {
+            const seqLengthInput = document.getElementById('seqLength');
+            if (!validateSeqLength(seqLengthInput.value)) {
+                showToast('Quantidade deve estar entre 15 e 20', 'error');
+                seqLengthInput.focus();
+                return;
+            }
+            
+            if (!excelData) {
+                showToast('Carregue um arquivo Excel primeiro.', 'error');
+                return;
+            }
+
+            showLoading(true);
+            await new Promise(r => setTimeout(r, 800));
+
+            try {
+                const totalGames = excelData.length - 1;
+                let limit = document.getElementById('gamesCount').value;
+                limit = limit ? parseInt(limit) : totalGames;
+                if (limit > totalGames) limit = totalGames;
+
+                const startIndex = Math.max(1, excelData.length - limit);
+                const numbers = [];
+                
+                for (let i = startIndex; i < excelData.length; i++) {
+                    const row = excelData[i];
+                    bolaColumns.forEach(col => {
+                        const val = row[col];
+                        if (val && !isNaN(val)) numbers.push(parseInt(val));
+                    });
+                }
+
+                const freq = {};
+                numbers.forEach(n => freq[n] = (freq[n] || 0) + 1);
+                
+                let sortedFreq;
+                if(analysisMode === 'cold') {
+                    sortedFreq = Object.entries(freq).sort((a, b) => a[1] - b[1]).slice(0, 25);
+                } else if(analysisMode === 'hot') {
+                    sortedFreq = Object.entries(freq).sort((a, b) => b[1] - a[1]).slice(0, 25);
+                } else {
+                    sortedFreq = Object.entries(freq)
+                        .map(([num, count]) => ({
+                            num: parseInt(num),
+                            count,
+                            score: count * 0.6 + probabilities[num] * 1000 * 0.4
+                        }))
+                        .sort((a, b) => b.score - a.score)
+                        .slice(0, 25)
+                        .map(item => [item.num, item.count]);
+                }
+
+                const coldNumbers = sortedFreq.map(([num, count]) => ({ num: parseInt(num), count }));
+                const baseQty = parseInt(document.getElementById('baseCount').value) || 8;
+                fixedBaseNumbers = coldNumbers.slice(0, baseQty).map(item => item.num).sort((a,b) => a-b);
+
+                const seqLength = parseInt(document.getElementById('seqLength').value) || 15;
+                const seqQty = parseInt(document.getElementById('seqCount').value) || 5;
+                
+                generatedSequences = [];
+                numberFrequency = {};
+                
+                for(let i = 0; i < seqQty; i++) {
+                    const sequence = generateUniqueSequence(fixedBaseNumbers, seqLength);
+                    generatedSequences.push(sequence);
+                    sequence.forEach(num => numberFrequency[num] = (numberFrequency[num] || 0) + 1);
+                }
+
+                const sortedByFreqAsc = Object.entries(numberFrequency)
+                    .sort((a, b) => a[1] - b[1])
+                    .map(([num, count]) => ({ num: parseInt(num), count }));
+                
+                leastFrequentNumbers = sortedByFreqAsc.slice(0, 8).map(item => item.num);
+                extraGames = generateExtraGames(2, seqLength);
+
+                // === CORREÇÃO: Renderizar com destaque para fixos ===
+                renderColdNumbers(coldNumbers, fixedBaseNumbers);
+                renderSequences(seqLength);
+                renderFrequencyAnalysis(sortedByFreqAsc);
+                renderExtraGames(seqLength);
+                
+                document.getElementById('welcomeState').style.display = 'none';
+                document.getElementById('resultsState').classList.add('active');
+                document.getElementById('freqAnalysisCard').style.display = 'block';
+                document.getElementById('extraGamesCard').style.display = 'block';
+                
+                // Switch to sequences tab after generation
+                document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+                document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+                document.querySelector('.tab-btn:first-child').classList.add('active');
+                document.getElementById('tab-sequences').classList.add('active');
+                
+                showToast(`Análise concluída! Modo: ${analysisMode === 'cold' ? 'Frios' : analysisMode === 'hot' ? 'Quentes' : 'Mistos'}`);
+
+            } catch (err) {
+                showToast('Erro: ' + err.message, 'error');
+                console.error(err);
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        // --- Generation Functions ---
+        function generateSequence(base, seqLength = 15) {
+            const baseSet = new Set(base);
+            const remaining = [];
+            for(let i = 1; i <= 25; i++) if(!baseSet.has(i)) remaining.push(i);
+            
+            for (let i = remaining.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [remaining[i], remaining[j]] = [remaining[j], remaining[i]];
+            }
+            
+            const additionalNeeded = seqLength - base.length;
+            const finalSeq = [...base, ...remaining.slice(0, Math.min(additionalNeeded, remaining.length))];
+            return finalSeq.sort((a,b) => a-b);
+        }
+
+        function generateUniqueSequence(base, seqLength = 15, maxAttempts = 500) {
+            let attempts = 0, sequence;
+            do {
+                sequence = generateSequence(base, seqLength);
+                attempts++;
+                if (attempts >= maxAttempts) break;
+            } while (sequenceExists([...sequence]));
+            return sequence;
+        }
+
+        function generateExtraGames(qty, seqLength = 15) {
+            const games = [];
+            for(let i = 0; i < qty; i++) {
+                games.push(generateUniqueSequence(leastFrequentNumbers, seqLength));
+            }
+            return games;
+        }
+
+        function getGradientClass(rank, total) {
+            const percentile = rank / total;
+            if(percentile <= 0.2) return 'grad-1';
+            if(percentile <= 0.4) return 'grad-4';
+            if(percentile <= 0.6) return 'grad-7';
+            if(percentile <= 0.8) return 'grad-10';
+            return 'grad-13';
+        }
+
+        function getFreqColor(freq, maxFreq, minFreq) {
+            const range = maxFreq - minFreq;
+            if(range === 0) return '--freq-med';
+            const position = (freq - minFreq) / range;
+            if(position >= 0.8) return '--freq-high';
+            if(position >= 0.6) return '--freq-med-high';
+            if(position >= 0.4) return '--freq-med';
+            if(position >= 0.2) return '--freq-med-low';
+            return '--freq-low';
+        }
+
+        // === CORREÇÃO: Renderização com destaque visual para números fixos ===
+        function renderColdNumbers(allCold, selectedBase) {
+            const grid = document.getElementById('coldNumbersGrid');
+            grid.innerHTML = '';
+            
+            const maxFreq = Math.max(...allCold.map(i => i.count));
+            const minFreq = Math.min(...allCold.map(i => i.count));
+            const totalGames = Object.values(allFrequencies).reduce((a,b) => a+b, 0) / 25;
+            
+            allCold.forEach((item, idx) => {
+                const isSelected = selectedBase.includes(item.num);
+                const pct = totalGames > 0 ? ((item.count / totalGames) * 100).toFixed(1) : 0;
+                const colorVar = getFreqColor(item.count, maxFreq, minFreq);
+                
+                const div = document.createElement('div');
+                div.className = `stat-item ${isSelected ? 'is-base' : ''}`;
+                div.style.cssText = isSelected ? 
+                    `border: 2px solid var(--danger); background: linear-gradient(135deg, rgba(239, 68, 68, 0.15), rgba(220, 38, 38, 0.1));` :
+                    `border-color: var(${colorVar}); background: color-mix(in srgb, var(${colorVar}) 15%, var(--bg-body));`;
+                
+                div.innerHTML = `
+                    <div class="stat-num">${item.num}</div>
+                    <div class="stat-freq">${item.count}x</div>
+                    <div class="stat-pct">${pct}%</div>
+                `;
+                grid.appendChild(div);
+            });
+
+            // === CORREÇÃO: Base display com bolas fixas em destaque ===
+            const baseDisplay = document.getElementById('selectedBaseDisplay');
+            baseDisplay.innerHTML = '';
+            selectedBase.forEach((num, idx) => {
+                const ball = document.createElement('div');
+                // Classe 'fixed' com !important no CSS garante o destaque
+                ball.className = 'ball fixed';
+                ball.innerHTML = `${num}<span class="tooltip">🔴 FIXO (Base)</span>`;
+                ball.style.animationDelay = `${idx * 0.05}s`;
+                baseDisplay.appendChild(ball);
+            });
+        }
+
+        function renderTop15MostFrequent() {
+            const grid = document.getElementById('top15Grid');
+            grid.innerHTML = '';
+            const sorted = Object.entries(allFrequencies).sort((a, b) => b[1] - a[1]).slice(0, 15);
+            const maxFreq = sorted[0][1];
+            const totalDraws = Object.values(allFrequencies).reduce((a,b) => a+b, 0);
+            
+            sorted.forEach(([num, count], idx) => {
+                const pct = ((count / totalDraws) * 100).toFixed(1);
+                const gradientClass = getGradientClass(idx, 15);
+                const item = document.createElement('div');
+                item.className = `top-item hot ${gradientClass}`;
+                item.innerHTML = `
+                    <span class="top-rank">#${idx + 1}</span>
+                    <div class="top-num">${num}</div>
+                    <div class="top-freq">${count}x</div>
+                    <div class="top-pct">${pct}%</div>
+                `;
+                item.title = `Frequência: ${count} vezes (${pct}% do total)`;
+                grid.appendChild(item);
+            });
+        }
+
+        function renderTop15LeastFrequent() {
+            const grid = document.getElementById('bottom15Grid');
+            grid.innerHTML = '';
+            const sorted = Object.entries(allFrequencies).sort((a, b) => a[1] - b[1]).slice(0, 15);
+            const totalDraws = Object.values(allFrequencies).reduce((a,b) => a+b, 0);
+            
+            sorted.forEach(([num, count], idx) => {
+                const pct = ((count / totalDraws) * 100).toFixed(1);
+                const gradientClass = getGradientClass(idx, 15);
+                const item = document.createElement('div');
+                item.className = `top-item cold ${gradientClass}`;
+                item.innerHTML = `
+                    <span class="top-rank">#${idx + 1}</span>
+                    <div class="top-num">${num}</div>
+                    <div class="top-freq">${count}x</div>
+                    <div class="top-pct">${pct}%</div>
+                `;
+                item.title = `Frequência: ${count} vezes (${pct}% do total)`;
+                grid.appendChild(item);
+            });
+        }
+
+        function renderTop10Potential() {
+            const grid = document.getElementById('potentialGrid');
+            grid.innerHTML = '';
+            const sorted = Object.entries(probabilities).sort((a, b) => b[1] - a[1]).slice(0, 10);
+            
+            sorted.forEach(([num, prob], idx) => {
+                const pct = (prob * 100).toFixed(1);
+                const freq = allFrequencies[num] || 0;
+                const item = document.createElement('div');
+                item.className = 'top-item potential grad-1';
+                item.innerHTML = `
+                    <span class="top-rank">#${idx + 1}</span>
+                    <div class="top-num">${num}</div>
+                    <div class="top-freq">${freq}x</div>
+                    <div class="top-pct" style="color:var(--ball-potential); font-weight:600;">${pct}%</div>
+                `;
+                item.title = `Probabilidade: ${pct}% | Frequência: ${freq}x`;
+                grid.appendChild(item);
+            });
+        }
+
+        function renderFullFrequencyList() {
+            const list = document.getElementById('fullFreqList');
+            list.innerHTML = '';
+            const numbers = [];
+            for(let i = 1; i <= 25; i++) numbers.push({ num: i, freq: allFrequencies[i] || 0 });
+            
+            const maxFreq = Math.max(...numbers.map(n => n.freq));
+            const minFreq = Math.min(...numbers.map(n => n.freq));
+            const totalDraws = Object.values(allFrequencies).reduce((a,b) => a+b, 0);
+            
+            numbers.sort((a, b) => a.num - b.num);
+            
+            numbers.forEach(item => {
+                const pct = totalDraws > 0 ? ((item.freq / totalDraws) * 100).toFixed(1) : '0.0';
+                const barWidth = maxFreq > 0 ? Math.max(10, (item.freq / maxFreq) * 100) : 10;
+                const colorVar = getFreqColor(item.freq, maxFreq, minFreq);
+                
+                const freqItem = document.createElement('div');
+                freqItem.className = 'full-freq-item';
+                freqItem.style.setProperty('--item-gradient', `var(${colorVar})`);
+                
+                freqItem.innerHTML = `
+                    <span class="full-freq-num">${item.num.toString().padStart(2, '0')}</span>
+                    <div class="full-freq-bar"><div class="full-freq-fill" style="width: ${barWidth}%"></div></div>
+                    <div class="full-freq-stats">
+                        <span>${item.freq}x</span>
+                        <span class="full-freq-pct">${pct}%</span>
+                    </div>
+                `;
+                freqItem.title = `Número ${item.num}: ${item.freq} ocorrências (${pct}%)`;
+                list.appendChild(freqItem);
+            });
+        }
+
+        // === CORREÇÃO: Renderizar sequências com fixos em destaque máximo ===
+        function renderSequences(seqLength = 15) {
+            const list = document.getElementById('sequencesList');
+            list.innerHTML = '';
+
+            generatedSequences.forEach((seq, idx) => {
+                const card = document.createElement('div');
+                card.className = 'sequence-card';
+                card.style.animationDelay = `${idx * 0.1}s`;
+                
+                const fixedCount = seq.filter(n => fixedBaseNumbers.includes(n)).length;
+                
+                const ballsHtml = seq.map((num, ballIdx) => {
+                    const isFixed = fixedBaseNumbers.includes(num);
+                    const repeatCount = numberFrequency[num] || 0;
+                    const isRepeat = repeatCount > 1;
+                    const isLeastFrequent = leastFrequentNumbers.includes(num);
+                    const isHighPotential = probabilities[num] > 0.045;
+                    
+                    let ballClass = 'regular';
+                    let tooltip = '';
+                    
+                    // === CORREÇÃO: Prioridade de classes para destaque ===
+                    if (isFixed) {
+                        ballClass = 'fixed';  // Classe com !important no CSS
+                        tooltip = `🔴 FIXO (Base)`;
+                    } else if (isHighPotential) {
+                        ballClass = 'potential';
+                        tooltip = `💗 Alto Potencial (${(probabilities[num]*100).toFixed(1)}%)`;
+                    } else if (isLeastFrequent) {
+                        ballClass = 'rare';
+                        tooltip = `🔷 Menos frequente (${repeatCount}x)`;
+                    } else if (isRepeat) {
+                        ballClass = 'repeat';
+                        tooltip = `🟠 Repetido (${repeatCount}x)`;
+                    }
+                    
+                    return `
+                        <div class="ball ${ballClass}" style="animation-delay: ${ballIdx * 0.03}s">
+                            ${num}
+                            <span class="tooltip">${tooltip}</span>
+                        </div>
+                    `;
+                }).join('');
+                
+                card.innerHTML = `
+                    <div class="seq-header">
+                        <span class="seq-title">
+                            Jogo ${idx + 1} 
+                            ${fixedCount > 0 ? `<span class="fixed-badge">${fixedCount} 🔴 Fixos</span>` : ''}
+                        </span>
+                        <button class="copy-btn" onclick="copyToClipboard('${seq.join(' - ')}')">
+                            <i class="fa-regular fa-copy"></i> Copiar
+                        </button>
+                    </div>
+                    <div class="balls-container">
+                        ${ballsHtml}
+                    </div>
+                `;
+                list.appendChild(card);
+            });
+        }
+
+        function renderFrequencyAnalysis(sortedByFreq) {
+            const grid = document.getElementById('freqGrid');
+            grid.innerHTML = '';
+            
+            sortedByFreq.forEach((item, idx) => {
+                const numItem = document.createElement('div');
+                numItem.className = 'freq-item';
+                
+                const isLeastFrequent = idx < 8;
+                const isMostFrequent = idx >= sortedByFreq.length - 8;
+                const isHighPotential = probabilities[item.num] > 0.045;
+                
+                if (isLeastFrequent) numItem.classList.add('rare');
+                else if (isMostFrequent) numItem.classList.add('common');
+                else if (isHighPotential) numItem.classList.add('potential');
+                
+                const pct = generatedSequences.length > 0 ? ((item.count / generatedSequences.length) * 100).toFixed(0) : 0;
+                
+                numItem.innerHTML = `
+                    <div class="freq-num">${item.num}</div>
+                    <div class="freq-count">${item.count}x</div>
+                    <div class="freq-pct">${pct}%</div>
+                `;
+                grid.appendChild(numItem);
+            });
+        }
+
+        function renderExtraGames(seqLength = 15) {
+            const list = document.getElementById('extraGamesList');
+            list.innerHTML = '';
+            
+            extraGames.forEach((seq, idx) => {
+                const card = document.createElement('div');
+                card.className = 'sequence-card extra-game';
+                card.style.animationDelay = `${idx * 0.1}s`;
+                
+                const ballsHtml = seq.map((num, ballIdx) => {
+                    const isFixed = fixedBaseNumbers.includes(num);
+                    const repeatCount = numberFrequency[num] || 0;
+                    const isRepeat = repeatCount > 1;
+                    const isLeastFrequent = leastFrequentNumbers.includes(num);
+                    const isHighPotential = probabilities[num] > 0.045;
+                    
+                    let ballClass = 'extra';
+                    let tooltip = 'Jogo Extra';
+                    
+                    if (isLeastFrequent) tooltip = 'Base (Menos Frequente)';
+                    if (isHighPotential) { tooltip += ' + Alto Potencial'; ballClass = 'potential'; }
+                    if (isFixed) { tooltip += ' + 🔴 Fixo'; ballClass = 'fixed'; }
+                    if (isRepeat) tooltip += ` + Repetido (${repeatCount}x)`;
+                    
+                    return `
+                        <div class="ball ${ballClass}" style="animation-delay: ${ballIdx * 0.03}s">
+                            ${num}
+                            <span class="tooltip">${tooltip}</span>
+                        </div>
+                    `;
+                }).join('');
+                
+                card.innerHTML = `
+                    <div class="seq-header">
+                        <span class="seq-title">Jogo Extra ${idx + 1}</span>
+                        <span class="seq-badge">MENOS FREQUENTES</span>
+                        <button class="copy-btn" onclick="copyToClipboard('${seq.join(' - ')}')">
+                            <i class="fa-regular fa-copy"></i> Copiar
+                        </button>
+                    </div>
+                    <div class="balls-container">
+                        ${ballsHtml}
+                    </div>
+                `;
+                list.appendChild(card);
+            });
+        }
+
+        function copyToClipboard(text) {
+            navigator.clipboard.writeText(text);
+            showToast('Copiado para área de transferência!');
+        }
+
+        function downloadResults() {
+            if(generatedSequences.length === 0 && extraGames.length === 0) return;
+            
+            const seqLength = document.getElementById('seqLength').value || 15;
+            const mode = analysisMode === 'cold' ? 'Frios' : analysisMode === 'hot' ? 'Quentes' : 'Mistos';
+            
+            let content = `SEQUÊNCIAS GERADAS - LOTOANALYTICS PRO\n`;
+            content += `======================================\n`;
+            content += `Configuração: ${seqLength} números | Base: ${mode}\n`;
+            content += `Data: ${new Date().toLocaleDateString('pt-BR')}\n\n`;
+            
+            content += "JOGOS PRINCIPAIS:\n-----------------\n";
+            generatedSequences.forEach((seq, i) => {
+                const fixed = seq.filter(n => fixedBaseNumbers.includes(n));
+                content += `Jogo ${String(i+1).padStart(2,'0')}: ${seq.map(n=>String(n).padStart(2,'0')).join(' - ')}`;
+                if(fixed.length > 0) content += ` [🔴 Fixos: ${fixed.join(', ')}]`;
+                content += `\n`;
+            });
+            
+            if(extraGames.length > 0) {
+                content += "\nJOGOS EXTRAS:\n---------------\n";
+                extraGames.forEach((seq, i) => {
+                    content += `Extra ${String(i+1).padStart(2,'0')}: ${seq.map(n=>String(n).padStart(2,'0')).join(' - ')}\n`;
+                });
+            }
+            
+            content += "\nLEGENDA:\n";
+            content += "🔴 = Número Fixo (destaque animado vermelho)\n";
+            content += "🟠 = Repetido em +1 sequência\n";
+            content += "🔷 = Menos frequente nas sequências\n";
+            content += "💗 = Alto Potencial Estatístico\n";
+            content += "🟣 = Jogo Extra\n";
+
+            const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `loto_pro_${analysisMode}_${Date.now()}.txt`;
+            a.click();
+            URL.revokeObjectURL(url);
+            showToast('Arquivo TXT baixado!');
+        }
+    </script>
+</body>
+</html>
