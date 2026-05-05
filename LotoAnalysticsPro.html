@@ -902,6 +902,7 @@
                 </div>
 
                 <div id="tab-sequences" class="tab-content active">
+                    <!-- Legenda das Cores -->
                     <div class="card" style="margin-bottom: 2rem;">
                         <div class="card-header">
                             <i class="fa-solid fa-circle-info" style="color: var(--text-muted);"></i>
@@ -935,6 +936,19 @@
                         </div>
                     </div>
 
+                    <!-- MOVIDO AQUI: Top 10 Potencial (Entre Legenda e Sequências) -->
+                    <div class="top-card potential" style="margin-bottom: 2rem;">
+                        <div class="card-header">
+                            <i class="fa-solid fa-bullseye" style="color: var(--ball-potential);"></i>
+                            <h2>🎯 Top 10 Maior Potencial</h2>
+                        </div>
+                        <p style="color: var(--text-muted); margin-bottom: 1rem; font-size: 0.9rem;">
+                            Calculado com frequência histórica + probabilidade ponderada. Use estes números como referência estratégica.
+                        </p>
+                        <div class="top-grid" id="potentialGrid"></div>
+                    </div>
+
+                    <!-- Sequências Sugeridas -->
                     <div class="card">
                         <div class="card-header">
                             <i class="fa-solid fa-list-ol"></i>
@@ -987,17 +1001,7 @@
                             <div class="top-grid" id="bottom15Grid"></div>
                         </div>
                     </div>
-
-                    <div class="top-card potential">
-                        <div class="card-header">
-                            <i class="fa-solid fa-bullseye" style="color: var(--ball-potential);"></i>
-                            <h2>🎯 Top 10 Maior Potencial</h2>
-                        </div>
-                        <p style="color: var(--text-muted); margin-bottom: 1rem; font-size: 0.9rem;">
-                            Calculado com frequência histórica + probabilidade ponderada
-                        </p>
-                        <div class="top-grid" id="potentialGrid"></div>
-                    </div>
+                    <!-- Top 10 Potential REMOVIDO daqui -->
                 </div>
 
                 <div id="tab-cold" class="tab-content">
