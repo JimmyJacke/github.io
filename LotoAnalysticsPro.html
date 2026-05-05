@@ -3,9 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Lotofácil Analytics Pro | Análise Completa</title>
+    <title>Lotofácil Analytics Pro | Atualizador Integrado</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <!-- SheetJS -->
     <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
     
     <style>
@@ -36,6 +37,10 @@
             --freq-med: linear-gradient(135deg, #f59e0b, #d97706);
             --freq-med-low: linear-gradient(135deg, #f97316, #ea580c);
             --freq-low: linear-gradient(135deg, #6b7280, #4b5563);
+            /* Cores do Atualizador */
+            --update-bg: #fff0fc;
+            --update-border: #930089;
+            --update-text: #72006a;
         }
 
         [data-theme="dark"] {
@@ -65,6 +70,9 @@
             --freq-med: linear-gradient(135deg, #fbbf24, #f59e0b);
             --freq-med-low: linear-gradient(135deg, #fb923c, #f97316);
             --freq-low: linear-gradient(135deg, #94a3b8, #6b7280);
+            --update-bg: #2d1b2e;
+            --update-border: #d946c5;
+            --update-text: #f0abfc;
         }
 
         * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Inter', sans-serif; }
@@ -196,6 +204,7 @@
             align-items: center;
             gap: 8px;
             transition: transform 0.2s, filter 0.2s;
+            text-decoration: none;
         }
         .btn:active { transform: scale(0.98); }
         .btn-primary { background: var(--primary); color: white; }
@@ -203,6 +212,25 @@
         .btn-success { background: var(--secondary); color: white; }
         .btn-outline { background: transparent; border: 1px solid var(--border); color: var(--text-main); }
         .btn-outline:hover { background: var(--bg-body); }
+        
+        /* Botão de Atualização Específico */
+        .btn-update {
+            background: var(--update-bg);
+            color: var(--update-text);
+            border: 1px solid var(--update-border);
+            margin-top: 10px;
+        }
+        .btn-update:hover {
+            background: var(--update-border);
+            color: white;
+        }
+        .btn-download {
+            background: var(--secondary);
+            color: white;
+            margin-top: 10px;
+            display: none; /* Hidden by default */
+        }
+        .btn-download:hover { background: #059669; }
 
         .results-section { display: none; animation: fadeIn 0.5s ease; }
         .results-section.active { display: block; }
@@ -228,7 +256,6 @@
         .stat-freq { font-size: 0.7rem; color: var(--text-muted); }
         .stat-pct { font-size: 0.65rem; color: var(--text-muted); margin-top: 2px; }
         
-        /* Indicador visual para números da base */
         .stat-item.is-base {
             border: 2px solid var(--danger);
             background: linear-gradient(135deg, rgba(239, 68, 68, 0.15), rgba(220, 38, 38, 0.1));
@@ -272,7 +299,6 @@
         }
         .ball:hover { transform: scale(1.2); z-index: 20; }
         
-        /* === CORREÇÃO: Números Fixos com destaque máximo === */
         .ball.fixed {
             background: var(--ball-fixed) !important;
             box-shadow: var(--ball-fixed-glow) !important;
@@ -284,14 +310,8 @@
         }
         
         @keyframes pulse {
-            0%, 100% { 
-                box-shadow: var(--ball-fixed-glow);
-                transform: scale(1);
-            }
-            50% { 
-                box-shadow: 0 0 0 5px rgba(239, 68, 68, 0.7), 0 8px 25px rgba(220, 38, 38, 0.5);
-                transform: scale(1.05);
-            }
+            0%, 100% { box-shadow: var(--ball-fixed-glow); transform: scale(1); }
+            50% { box-shadow: 0 0 0 5px rgba(239, 68, 68, 0.7), 0 8px 25px rgba(220, 38, 38, 0.5); transform: scale(1.05); }
         }
 
         .ball.regular { background: var(--ball-gradient); }
@@ -633,7 +653,6 @@
         }
         .validation-msg.show { display: block; }
 
-        /* === CORREÇÃO: Tabs com Sequências primeiro === */
         .tabs {
             display: flex;
             gap: 0.5rem;
@@ -699,6 +718,27 @@
         .mode-btn.hot.active { border-color: var(--ball-hot); background: var(--ball-hot); }
         .mode-btn.mixed.active { border-color: var(--primary); background: var(--primary); }
 
+        /* Estilo específico para área de atualização */
+        .update-area {
+            margin-top: 1.5rem;
+            padding: 1rem;
+            border: 1px dashed var(--update-border);
+            border-radius: 10px;
+            background: var(--update-bg);
+            text-align: center;
+        }
+        .update-info {
+            font-size: 0.85rem;
+            color: var(--update-text);
+            margin-bottom: 0.8rem;
+        }
+        .update-warning {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            margin-top: 0.5rem;
+            font-style: italic;
+        }
+
         @media(max-width: 768px) {
             header { padding: 1rem; }
             .container { padding: 0 0.5rem; }
@@ -741,6 +781,31 @@
                         <i class="fa-solid fa-check-circle"></i> <span id="fileName"></span>
                     </div>
                 </div>
+
+                <!-- ÁREA DE ATUALIZAÇÃO INTEGRADA -->
+                <div id="updateSection" class="update-area" style="display: none;">
+                    <p class="update-info">
+                        <i class="fa-solid fa-database"></i> Último concurso detectado: <strong id="lastContestDisplay">0</strong>
+                    </p>
+                    
+                    <button id="btnCheckUpdate" class="btn btn-update" onclick="checkForUpdates()">
+                        <i class="fa-solid fa-rotate"></i> Verificar e Baixar Atualizações
+                    </button>
+                    
+                    <a id="btnDownloadUpdate" class="btn btn-download">
+                        <i class="fa-solid fa-download"></i> Baixar Planilha Atualizada
+                    </a>
+
+                    <p class="update-warning">
+                        ⚠️ <strong>Importante:</strong> Após baixar a planilha atualizada, você precisará <strong>enviar o novo arquivo</strong> acima para analisar os dados mais recentes.
+                    </p>
+                    <div id="updateLoading" style="display:none; color: var(--update-text); margin-top:10px; font-size:0.9rem;">
+                        <i class="fa-solid fa-spinner fa-spin"></i> Consultando base oficial...
+                    </div>
+                    <div id="updateStatus" style="margin-top:10px; font-size:0.85rem;"></div>
+                </div>
+                <!-- FIM DA ÁREA DE ATUALIZAÇÃO -->
+
             </div>
 
             <div class="card" style="margin-top: 2rem;">
@@ -829,7 +894,6 @@
 
             <div id="resultsState" class="results-section">
                 
-                <!-- === CORREÇÃO: Sequências como PRIMEIRA aba === -->
                 <div class="tabs">
                     <button class="tab-btn active" onclick="switchTab('sequences')">🎲 Sequências</button>
                     <button class="tab-btn" onclick="switchTab('stats')">📊 Estatísticas</button>
@@ -837,7 +901,6 @@
                     <button class="tab-btn" onclick="switchTab('full')">📋 Lista Completa</button>
                 </div>
 
-                <!-- Tab: Sequências (AGORA PRIMEIRA) -->
                 <div id="tab-sequences" class="tab-content active">
                     <div class="card" style="margin-bottom: 2rem;">
                         <div class="card-header">
@@ -906,7 +969,6 @@
                     </div>
                 </div>
 
-                <!-- Tab: Estatísticas -->
                 <div id="tab-stats" class="tab-content">
                     <div class="top-section">
                         <div class="top-card hot">
@@ -938,7 +1000,6 @@
                     </div>
                 </div>
 
-                <!-- Tab: Números Frios -->
                 <div id="tab-cold" class="tab-content">
                     <div class="card" style="margin-bottom: 2rem;">
                         <div class="card-header">
@@ -958,7 +1019,6 @@
                     </div>
                 </div>
 
-                <!-- Tab: Lista Completa -->
                 <div id="tab-full" class="tab-content">
                     <div class="card">
                         <div class="card-header">
@@ -995,6 +1055,11 @@
         let isDark = false;
         let existingSequencesSet = new Set();
         let analysisMode = 'cold';
+        
+        // Variáveis para o Atualizador
+        let updateWorkbook = null;
+        let updateJsonData = [];
+        let lastContestInFile = 0;
 
         // --- Theme Toggle ---
         function toggleTheme() {
@@ -1015,7 +1080,6 @@
 
         if(localStorage.getItem('theme') === 'dark') toggleTheme();
 
-        // === CORREÇÃO: Tab switching com Sequências como padrão ===
         function switchTab(tabName) {
             document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
             document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
@@ -1023,7 +1087,6 @@
             document.getElementById(`tab-${tabName}`).classList.add('active');
         }
 
-        // --- Analysis Mode Selection ---
         function setAnalysisMode(mode, btn) {
             analysisMode = mode;
             document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
@@ -1044,7 +1107,6 @@
             }
         }
 
-        // --- UI Helpers ---
         function showToast(msg, type = 'success') {
             const toast = document.getElementById('toast');
             const toastMsg = document.getElementById('toastMsg');
@@ -1095,7 +1157,7 @@
         document.getElementById('seqLength').addEventListener('input', e => validateSeqLength(e.target.value));
         document.getElementById('seqLength').addEventListener('blur', e => validateSeqLength(e.target.value));
 
-        // --- File Handling ---
+        // --- File Handling & Updater Init ---
         document.getElementById('fileInput').addEventListener('change', async (e) => {
             const file = e.target.files[0];
             if (!file) return;
@@ -1118,6 +1180,9 @@
                     extractExistingSequences();
                     extractFrequencies();
                     
+                    // INICIALIZAR ATUALIZADOR
+                    initUpdater(workbook, excelData);
+                    
                     showToast('Arquivo carregado com sucesso!');
                 }
             } catch (err) {
@@ -1126,6 +1191,119 @@
             }
         });
 
+        // --- Lógica do Atualizador Integrado ---
+        function initUpdater(workbook, rawData) {
+            const updateSection = document.getElementById('updateSection');
+            const btnCheck = document.getElementById('btnCheckUpdate');
+            const btnDownload = document.getElementById('btnDownloadUpdate');
+            const statusDiv = document.getElementById('updateStatus');
+            
+            // Reset UI
+            updateSection.style.display = 'block';
+            btnCheck.style.display = 'inline-flex';
+            btnDownload.style.display = 'none';
+            statusDiv.innerHTML = '';
+            
+            // Preparar dados para o atualizador
+            updateWorkbook = workbook;
+            
+            // Limpeza similar ao código original do atualizador
+            // Assumindo que a coluna 0 é o número do concurso
+            updateJsonData = rawData.filter(row => {
+                return row.length > 0 && !isNaN(parseInt(row[0])) && row[0] !== "Concurso";
+            });
+
+            // Ordenar
+            updateJsonData.sort((a, b) => parseInt(a[0]) - parseInt(b[0]));
+
+            if (updateJsonData.length > 0) {
+                const lastRow = updateJsonData[updateJsonData.length - 1];
+                lastContestInFile = parseInt(lastRow[0]);
+                document.getElementById('lastContestDisplay').innerText = lastContestInFile;
+            } else {
+                document.getElementById('lastContestDisplay').innerText = "N/A";
+            }
+        }
+
+        async function checkForUpdates() {
+            const loading = document.getElementById('updateLoading');
+            const statusDiv = document.getElementById('updateStatus');
+            const btnCheck = document.getElementById('btnCheckUpdate');
+            const btnDownload = document.getElementById('btnDownloadUpdate');
+            
+            loading.style.display = 'block';
+            statusDiv.innerHTML = '';
+            btnCheck.disabled = true;
+            btnDownload.style.display = 'none';
+
+            try {
+                let foundNew = false;
+                let nextContestToCheck = lastContestInFile + 1;
+                
+                // Tenta buscar até 5 concursos à frente
+                for (let i = 0; i < 5; i++) {
+                    const contestNumber = nextContestToCheck + i;
+                    
+                    // API Pública
+                    const response = await fetch(`https://loteriascaixa-api.herokuapp.com/api/lotofacil/${contestNumber}`);
+                    
+                    if (response.ok) {
+                        const data = await response.json();
+                        
+                        if (data.dezenas && data.dezenas.length === 15) {
+                            const newDezenas = data.dezenas.map(n => parseInt(n));
+                            // Formato esperado: [Concurso, D1...D15]
+                            const newRow = [data.concurso, ...newDezenas];
+                            
+                            updateJsonData.push(newRow);
+                            foundNew = true;
+                            lastContestInFile = data.concurso;
+                        }
+                    } else {
+                        break;
+                    }
+                }
+
+                loading.style.display = 'none';
+                btnCheck.disabled = false;
+
+                if (foundNew) {
+                    // Atualizar Workbook na memória
+                    const header = ["Concurso", "Bola1", "Bola2", "Bola3", "Bola4", "Bola5", "Bola6", "Bola7", "Bola8", "Bola9", "Bola10", "Bola11", "Bola12", "Bola13", "Bola14", "Bola15"];
+                    const finalData = [header, ...updateJsonData];
+                    const newWorksheet = XLSX.utils.aoa_to_sheet(finalData);
+                    
+                    const firstSheetName = updateWorkbook.SheetNames[0];
+                    updateWorkbook.Sheets[firstSheetName] = newWorksheet;
+
+                    // Mostrar sucesso e botão de download
+                    statusDiv.innerHTML = `<span style="color:var(--secondary)">✅ Sucesso! Atualizado até o concurso ${lastContestInFile}.</span>`;
+                    document.getElementById('lastContestDisplay').innerText = lastContestInFile;
+                    
+                    btnDownload.style.display = 'inline-flex';
+                    
+                    // Gerar Blob para download
+                    const wbout = XLSX.write(updateWorkbook, {bookType:'xlsx', type:'array'});
+                    const blob = new Blob([wbout], {type: "application/octet-stream"});
+                    btnDownload.href = URL.createObjectURL(blob);
+                    btnDownload.download = `Lotofacil_Atualizada_${lastContestInFile}.xlsx`;
+                    
+                    showToast('Atualização encontrada! Baixe o arquivo.', 'success');
+                } else {
+                    statusDiv.innerHTML = `<span style="color:var(--text-muted)">✨ Sua planilha já está atualizada.</span>`;
+                    showToast('Sua planilha já está atualizada.', 'success');
+                }
+
+            } catch (error) {
+                console.error(error);
+                loading.style.display = 'none';
+                btnCheck.disabled = false;
+                statusDiv.innerHTML = `<span style="color:var(--danger)">❌ Erro ao conectar com a API.</span>`;
+                showToast('Erro na conexão com a API.', 'error');
+            }
+        }
+
+        // --- Core Logic Functions ---
         function extractExistingSequences() {
             existingSequencesSet = new Set();
             if (!excelData || excelData.length < 2) return;
@@ -1178,7 +1356,6 @@
             return existingSequencesSet.has(seqStr);
         }
 
-        // --- Core Logic ---
         async function processAnalysis() {
             const seqLengthInput = document.getElementById('seqLength');
             if (!validateSeqLength(seqLengthInput.value)) {
@@ -1255,7 +1432,6 @@
                 leastFrequentNumbers = sortedByFreqAsc.slice(0, 8).map(item => item.num);
                 extraGames = generateExtraGames(2, seqLength);
 
-                // === CORREÇÃO: Renderizar com destaque para fixos ===
                 renderColdNumbers(coldNumbers, fixedBaseNumbers);
                 renderSequences(seqLength);
                 renderFrequencyAnalysis(sortedByFreqAsc);
@@ -1266,7 +1442,6 @@
                 document.getElementById('freqAnalysisCard').style.display = 'block';
                 document.getElementById('extraGamesCard').style.display = 'block';
                 
-                // Switch to sequences tab after generation
                 document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
                 document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
                 document.querySelector('.tab-btn:first-child').classList.add('active');
@@ -1282,7 +1457,6 @@
             }
         }
 
-        // --- Generation Functions ---
         function generateSequence(base, seqLength = 15) {
             const baseSet = new Set(base);
             const remaining = [];
@@ -1336,7 +1510,6 @@
             return '--freq-low';
         }
 
-        // === CORREÇÃO: Renderização com destaque visual para números fixos ===
         function renderColdNumbers(allCold, selectedBase) {
             const grid = document.getElementById('coldNumbersGrid');
             grid.innerHTML = '';
@@ -1364,12 +1537,10 @@
                 grid.appendChild(div);
             });
 
-            // === CORREÇÃO: Base display com bolas fixas em destaque ===
             const baseDisplay = document.getElementById('selectedBaseDisplay');
             baseDisplay.innerHTML = '';
             selectedBase.forEach((num, idx) => {
                 const ball = document.createElement('div');
-                // Classe 'fixed' com !important no CSS garante o destaque
                 ball.className = 'ball fixed';
                 ball.innerHTML = `${num}<span class="tooltip">🔴 FIXO (Base)</span>`;
                 ball.style.animationDelay = `${idx * 0.05}s`;
@@ -1477,7 +1648,6 @@
             });
         }
 
-        // === CORREÇÃO: Renderizar sequências com fixos em destaque máximo ===
         function renderSequences(seqLength = 15) {
             const list = document.getElementById('sequencesList');
             list.innerHTML = '';
@@ -1499,9 +1669,8 @@
                     let ballClass = 'regular';
                     let tooltip = '';
                     
-                    // === CORREÇÃO: Prioridade de classes para destaque ===
                     if (isFixed) {
-                        ballClass = 'fixed';  // Classe com !important no CSS
+                        ballClass = 'fixed';
                         tooltip = `🔴 FIXO (Base)`;
                     } else if (isHighPotential) {
                         ballClass = 'potential';
