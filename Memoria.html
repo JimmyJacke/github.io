@@ -1,0 +1,559 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🧠 Memória Externa</title>
+<style>
+  :root {
+    --bg-primary: #f0f2f5; --bg-secondary: #ffffff; --bg-card: #ffffff;
+    --text-primary: #1a1a2e; --text-secondary: #555770; --accent: #6c5ce7;
+    --accent-light: rgba(108, 92, 231, 0.1); --border: #e0e0e0;
+    --shadow: 0 8px 32px rgba(0,0,0,0.08); --radius: 16px; --radius-sm: 10px;
+    --glass: rgba(255,255,255,0.7); --backdrop: blur(20px);
+    --idea-color: #6c5ce7; --reminder-color: #e17055;
+  }
+  [data-theme="dark"] {
+    --bg-primary: #0a0a1a; --bg-secondary: #12122a; --bg-card: #1a1a3e;
+    --text-primary: #e8e8f0; --text-secondary: #9090b0; --border: #2a2a5a;
+    --shadow: 0 8px 32px rgba(0,0,0,0.3); --glass: rgba(26,26,62,0.8);
+    --accent-light: rgba(108, 92, 231, 0.2);
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    background: var(--bg-primary); color: var(--text-primary);
+    min-height: 100vh; transition: all 0.4s cubic-bezier(0.4,0,0.2,1); overflow-x: hidden;
+  }
+  body::before {
+    content: ''; position: fixed; top: -50%; left: -50%; width: 200%; height: 200%;
+    background: radial-gradient(ellipse at 20% 50%, rgba(108,92,231,0.08) 0%, transparent 50%),
+                radial-gradient(ellipse at 80% 20%, rgba(253,121,168,0.06) 0%, transparent 50%),
+                radial-gradient(ellipse at 50% 80%, rgba(0,184,148,0.05) 0%, transparent 50%);
+    z-index: -1; animation: bgFloat 20s ease-in-out infinite;
+  }
+  @keyframes bgFloat { 0%,100% { transform: translate(0,0) rotate(0deg); } 33% { transform: translate(2%,-2%) rotate(1deg); } 66% { transform: translate(-1%,1%) rotate(-1deg); } }
+  ::-webkit-scrollbar { width: 6px; } ::-webkit-scrollbar-track { background: transparent; } ::-webkit-scrollbar-thumb { background: var(--accent); border-radius: 3px; }
+
+  .header {
+    background: var(--glass); backdrop-filter: var(--backdrop); -webkit-backdrop-filter: var(--backdrop);
+    border-bottom: 1px solid var(--border); padding: 14px 20px; position: sticky; top: 0; z-index: 100;
+    display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;
+  }
+  .logo {
+    display: flex; align-items: center; gap: 10px; font-size: 1.3rem; font-weight: 800;
+    background: linear-gradient(135deg, #6c5ce7, #a29bfe); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+  }
+  .logo-icon { font-size: 1.7rem; animation: pulse 2s ease-in-out infinite; }
+  @keyframes pulse { 0%,100% { transform: scale(1); } 50% { transform: scale(1.1); } }
+  .header-actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+
+  .btn { padding: 9px 16px; border: none; border-radius: var(--radius-sm); cursor: pointer; font-size: 0.82rem; font-weight: 600; transition: all 0.3s ease; display: inline-flex; align-items: center; gap: 5px; }
+  .btn-primary { background: linear-gradient(135deg, #6c5ce7, #a29bfe); color: white; box-shadow: 0 4px 15px rgba(108,92,231,0.3); }
+  .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(108,92,231,0.4); }
+  .btn-secondary { background: var(--bg-card); color: var(--text-primary); border: 1px solid var(--border); }
+  .btn-secondary:hover { border-color: var(--accent); color: var(--accent); }
+  .btn-icon { width: 38px; height: 38px; padding: 0; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 1.1rem; background: var(--bg-card); border: 1px solid var(--border); color: var(--text-primary); cursor: pointer; transition: all 0.3s ease; }
+  .btn-icon:hover { background: var(--accent); color: white; border-color: var(--accent); transform: scale(1.1); }
+  .btn-danger { background: linear-gradient(135deg,#d63031,#e84393); color: white; }
+  .btn-success { background: linear-gradient(135deg,#00b894,#00cec9); color: white; }
+  .btn-mute { background: linear-gradient(135deg,#fdcb6e,#e17055); color: white; animation: mutePulse 1s ease-in-out infinite; }
+  @keyframes mutePulse { 0%,100%{transform:scale(1)} 50%{transform:scale(1.05)} }
+
+  .main-container { max-width: 1500px; margin: 0 auto; padding: 20px; display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+  @media (max-width: 950px) { .main-container { grid-template-columns: 1fr; padding: 14px; gap: 14px; } }
+
+  .card { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); transition: all 0.3s ease; overflow: hidden; }
+  .card:hover { box-shadow: var(--shadow-hover); }
+  .card-header { padding: 16px 20px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; background: var(--accent-light); }
+  .card-header h2 { font-size: 0.95rem; font-weight: 700; display: flex; align-items: center; gap: 7px; }
+  .card-body { padding: 20px; }
+
+  .type-selector { display: flex; gap: 10px; margin-bottom: 16px; }
+  .type-btn { flex: 1; padding: 11px; border: 2px solid var(--border); border-radius: var(--radius-sm); background: var(--bg-secondary); cursor: pointer; text-align: center; transition: all 0.3s ease; font-weight: 600; font-size: 0.85rem; color: var(--text-secondary); }
+  .type-btn.active { border-color: var(--accent); background: var(--accent-light); color: var(--accent); }
+  .type-btn .icon { font-size: 1.4rem; display: block; margin-bottom: 3px; }
+
+  .text-input { width: 100%; min-height: 140px; padding: 14px; border: 2px solid var(--border); border-radius: var(--radius-sm); background: var(--bg-secondary); color: var(--text-primary); font-size: 0.92rem; font-family: inherit; resize: vertical; transition: border-color 0.3s ease; line-height: 1.6; }
+  .text-input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 4px var(--accent-light); }
+  .text-input::placeholder { color: var(--text-secondary); opacity: 0.6; }
+
+  .audio-controls { display: flex; gap: 12px; margin-top: 14px; align-items: center; flex-wrap: wrap; }
+  .record-btn { width: 52px; height: 52px; border-radius: 50%; border: 3px solid var(--danger); background: transparent; color: var(--danger); font-size: 1.4rem; cursor: pointer; transition: all 0.3s ease; display: flex; align-items: center; justify-content: center; }
+  .record-btn:hover { background: var(--danger); color: white; transform: scale(1.05); }
+  .record-btn.recording { background: var(--danger); color: white; animation: recordPulse 1.5s ease-in-out infinite; }
+  @keyframes recordPulse { 0%,100% { box-shadow: 0 0 0 0 rgba(214,48,49,0.4); } 50% { box-shadow: 0 0 0 15px rgba(214,48,49,0); } }
+  .record-status { font-size: 0.78rem; color: var(--text-secondary); font-weight: 600; }
+
+  .reminder-controls { display: flex; gap: 10px; margin-top: 14px; align-items: center; flex-wrap: wrap; }
+  .reminder-input { padding: 10px 14px; border: 2px solid var(--border); border-radius: var(--radius-sm); background: var(--bg-secondary); color: var(--text-primary); font-size: 0.85rem; font-family: inherit; flex: 1; min-width: 150px; }
+  .reminder-input:focus { outline: none; border-color: var(--reminder-color); }
+
+  .action-bar { display: flex; gap: 10px; margin-top: 16px; flex-wrap: wrap; }
+  .action-bar .btn { flex: 1; justify-content: center; min-width: 110px; }
+
+  .stats-bar { display: flex; gap: 14px; padding: 10px 20px; background: var(--accent-light); border-bottom: 1px solid var(--border); font-size: 0.78rem; color: var(--text-secondary); flex-wrap: wrap; }
+  .stat-item { display: flex; align-items: center; gap: 4px; } .stat-value { font-weight: 700; color: var(--accent); }
+
+  .search-wrapper { position: relative; margin-bottom: 12px; }
+  .search-wrapper::before { content: '🔍'; position: absolute; left: 12px; top: 50%; transform: translateY(-50%); font-size: 0.85rem; pointer-events: none; }
+  .search-box { width: 100%; padding: 10px 16px; padding-left: 38px; border: 2px solid var(--border); border-radius: var(--radius-sm); background: var(--bg-secondary); color: var(--text-primary); font-size: 0.82rem; transition: all 0.3s ease; font-family: inherit; }
+  .search-box:focus { outline: none; border-color: var(--accent); }
+
+  .filter-tabs { display: flex; gap: 6px; margin-bottom: 12px; flex-wrap: wrap; }
+  .filter-tab { padding: 5px 13px; border-radius: 20px; border: 1px solid var(--border); background: transparent; color: var(--text-secondary); font-size: 0.78rem; font-weight: 600; cursor: pointer; transition: all 0.2s ease; font-family: inherit; }
+  .filter-tab.active { background: var(--accent); color: white; border-color: var(--accent); }
+
+  .items-container { max-height: 60vh; overflow-y: auto; padding: 4px 0; }
+  .item { padding: 14px; border-radius: var(--radius-sm); margin-bottom: 8px; border: 1px solid var(--border); background: var(--bg-secondary); transition: all 0.3s ease; display: flex; gap: 10px; align-items: flex-start; }
+  .item:hover { transform: translateX(4px); box-shadow: var(--shadow); }
+  .item.selected { border-color: var(--accent); background: var(--accent-light); }
+  .item-checkbox { margin-top: 4px; flex-shrink: 0; width: 20px; height: 20px; cursor: pointer; accent-color: var(--accent); }
+  .item-content { flex: 1; min-width: 0; }
+  .item-idea { border-left: 4px solid var(--idea-color); } .item-reminder { border-left: 4px solid var(--reminder-color); }
+  .item-type-badge { display: inline-block; padding: 2px 9px; border-radius: 20px; font-size: 0.68rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; }
+  .badge-idea { background: rgba(108,92,231,0.15); color: var(--idea-color); } .badge-reminder { background: rgba(225,112,85,0.15); color: var(--reminder-color); }
+  .item-text { font-size: 0.88rem; line-height: 1.5; color: var(--text-primary); margin-bottom: 6px; word-wrap: break-word; }
+  .item-meta { display: flex; justify-content: space-between; align-items: center; font-size: 0.72rem; color: var(--text-secondary); flex-wrap: wrap; gap: 4px; }
+  .item-actions { display: flex; gap: 4px; }
+  .item-action-btn { width: 28px; height: 28px; border-radius: 50%; border: none; background: transparent; color: var(--text-secondary); cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 0.8rem; transition: all 0.2s ease; }
+  .item-action-btn:hover { background: var(--accent-light); color: var(--accent); }
+  .item-action-btn.delete:hover { background: rgba(214,48,49,0.15); color: var(--danger); }
+
+  .mindmap-section { margin-top: 20px; }
+  .mindmap-container { width: 100%; min-height: 450px; overflow: auto; padding: 40px 20px 20px; background: var(--bg-secondary); border-radius: var(--radius-sm); position: relative; border: 1px solid var(--border); }
+  .mindmap-info { position: absolute; top: 10px; left: 10px; background: var(--bg-card); padding: 6px 12px; border-radius: 8px; font-size: 0.72rem; color: var(--text-secondary); box-shadow: 0 2px 8px rgba(0,0,0,0.1); border: 1px solid var(--border); z-index: 5; }
+  .mindmap-controls { position: absolute; top: 10px; right: 10px; display: flex; gap: 6px; z-index: 5; }
+  .mindmap-controls .btn-icon { width: 32px; height: 32px; font-size: 0.85rem; background: var(--bg-card); box-shadow: 0 2px 8px rgba(0,0,0,0.15); border: 1px solid var(--border); }
+  .tree { display: flex; justify-content: center; min-width: max-content; padding-bottom: 20px; }
+  .tree ul { padding-top: 24px; position: relative; transition: all 0.4s cubic-bezier(0.4,0,0.2,1); display: flex; justify-content: center; gap: 16px; margin: 0; padding-left: 0; list-style: none; }
+  .tree ul.collapsed { display: none !important; }
+  .tree li { display: flex; flex-direction: column; align-items: center; position: relative; padding: 24px 12px 0 12px; transition: all 0.4s ease; }
+  .tree li::before, .tree li::after { content: ''; position: absolute; top: 0; right: 50%; border-top: 2px solid var(--border); width: 50%; height: 24px; }
+  .tree li::after { right: auto; left: 50%; border-left: 2px solid var(--border); }
+  .tree li:only-child::after, .tree li:only-child::before { display: none; }
+  .tree li:only-child { padding-top: 0; }
+  .tree li:first-child::before, .tree li:last-child::after { border: 0 none; }
+  .tree li:last-child::before { border-right: 2px solid var(--border); border-radius: 0 8px 0 0; }
+  .tree li:first-child::after { border-radius: 8px 0 0 0; }
+  .tree ul ul::before { content: ''; position: absolute; top: 0; left: 50%; border-left: 2px solid var(--border); width: 0; height: 24px; }
+  .node-box { padding: 12px 16px; border-radius: 14px; background: var(--accent); color: white; font-weight: 600; font-size: 0.82rem; cursor: pointer; position: relative; z-index: 2; transition: all 0.3s cubic-bezier(0.4,0,0.2,1); text-align: center; max-width: 200px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); border: 1px solid rgba(255,255,255,0.2); user-select: none; margin-bottom: 4px; }
+  .node-box:hover { transform: translateY(-2px) scale(1.02); box-shadow: 0 8px 20px rgba(0,0,0,0.15); }
+  .node-box.level-0 { background: linear-gradient(135deg, #6c5ce7, #a29bfe); font-size: 0.95rem; padding: 14px 22px; min-width: 120px; }
+  .node-box.level-1 { background: linear-gradient(135deg, #00b894, #00cec9); box-shadow: 0 4px 15px rgba(0,184,148,0.25); }
+  .node-box.level-2 { background: linear-gradient(135deg, #fd79a8, #e84393); box-shadow: 0 4px 15px rgba(253,121,168,0.25); }
+  .node-box.level-3 { background: linear-gradient(135deg, #fdcb6e, #f39c12); color: #2d3436; box-shadow: 0 4px 15px rgba(253,203,110,0.25); }
+  .node-box.level-4 { background: linear-gradient(135deg, #0984e3, #74b9ff); box-shadow: 0 4px 15px rgba(9,132,227,0.25); }
+  .expand-indicator { position: absolute; bottom: -14px; left: 50%; transform: translateX(-50%); width: 26px; height: 26px; background: var(--bg-card); border: 2px solid var(--border); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 0.9rem; font-weight: bold; color: var(--text-secondary); cursor: pointer; z-index: 3; transition: all 0.3s ease; box-shadow: 0 2px 6px rgba(0,0,0,0.1); }
+  .node-box.has-children.expanded .expand-indicator { background: var(--accent); color: white; border-color: var(--accent); transform: translateX(-50%) rotate(180deg); }
+  .mindmap-select-bar { padding: 12px 20px; border-bottom: 1px solid var(--border); background: rgba(108,92,231,0.05); display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  .mindmap-select-bar label { font-size: 0.8rem; font-weight: 600; color: var(--text-secondary); }
+
+  .empty-state { text-align: center; padding: 40px 20px; color: var(--text-secondary); display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 300px; }
+  .empty-state .icon { font-size: 2.8rem; margin-bottom: 10px; opacity: 0.5; } .empty-state p { font-size: 0.88rem; }
+
+  /* ALERT OVERLAY COM INDICADOR DE ALARME */
+  .alert-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); backdrop-filter: blur(12px); z-index: 1000; display: none; align-items: center; justify-content: center; }
+  .alert-overlay.show { display: flex; }
+  .alert-overlay.alarm-active { animation: alarmBgFlash 0.8s ease-in-out infinite; }
+  @keyframes alarmBgFlash { 0%,100%{background:rgba(0,0,0,0.7)} 50%{background:rgba(180,0,0,0.4)} }
+  .alert-box { background: var(--bg-card); border-radius: var(--radius); padding: 32px; max-width: 420px; width: 92%; text-align: center; box-shadow: 0 20px 60px rgba(0,0,0,0.4); animation: slideUp 0.4s cubic-bezier(0.4,0,0.2,1); border: 2px solid transparent; }
+  .alert-box.alarm-active { border-color: var(--danger); animation: slideUp 0.4s ease, alarmBoxPulse 1s ease-in-out infinite; }
+  @keyframes slideUp { from { transform: translateY(30px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+  @keyframes alarmBoxPulse { 0%,100%{box-shadow:0 20px 60px rgba(214,48,49,0.3)} 50%{box-shadow:0 20px 60px rgba(214,48,49,0.6)} }
+  .alert-icon { font-size: 3rem; margin-bottom: 14px; }
+  .alert-icon.alarm-active { animation: alarmBell 0.3s ease-in-out infinite alternate; }
+  @keyframes alarmBell { from{transform:rotate(-15deg)} to{transform:rotate(15deg)} }
+  .alarm-indicator { display: none; align-items: center; justify-content: center; gap: 8px; padding: 8px 16px; background: linear-gradient(135deg,#d63031,#e17055); color: white; border-radius: 20px; font-size: 0.78rem; font-weight: 700; margin-bottom: 16px; }
+  .alarm-indicator.active { display: inline-flex; animation: alarmIndPulse 0.6s ease-in-out infinite; }
+  @keyframes alarmIndPulse { 0%,100%{transform:scale(1)} 50%{transform:scale(1.08)} }
+  .alarm-waves { display: inline-flex; gap: 3px; align-items: center; height: 16px; }
+  .alarm-waves span { display: inline-block; width: 3px; background: white; border-radius: 2px; animation: wave 0.8s ease-in-out infinite; }
+  .alarm-waves span:nth-child(1){height:6px;animation-delay:0s}
+  .alarm-waves span:nth-child(2){height:12px;animation-delay:0.1s}
+  .alarm-waves span:nth-child(3){height:16px;animation-delay:0.2s}
+  .alarm-waves span:nth-child(4){height:12px;animation-delay:0.3s}
+  .alarm-waves span:nth-child(5){height:6px;animation-delay:0.4s}
+  @keyframes wave { 0%,100%{transform:scaleY(1)} 50%{transform:scaleY(0.4)} }
+  .alert-box h3 { font-size: 1.2rem; margin-bottom: 8px; color: var(--text-primary); }
+  .alert-box p { color: var(--text-secondary); margin-bottom: 18px; line-height: 1.5; font-size: 0.9rem; }
+  .alert-buttons { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
+
+  .flash { position: fixed; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 999; animation: flashAnim 0.5s ease; }
+  @keyframes flashAnim { 0% { background: rgba(108,92,231,0.3); } 50% { background: rgba(253,121,168,0.3); } 100% { background: transparent; } }
+
+  .toast-container { position: fixed; top: 70px; right: 16px; z-index: 200; display: flex; flex-direction: column; gap: 6px; }
+  .toast { padding: 10px 18px; border-radius: var(--radius-sm); background: var(--bg-card); border: 1px solid var(--border); box-shadow: var(--shadow); font-size: 0.82rem; font-weight: 600; display: flex; align-items: center; gap: 7px; animation: toastIn 0.4s ease; max-width: 300px; }
+  @keyframes toastIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+  .toast.success { border-left: 4px solid var(--success); } .toast.error { border-left: 4px solid var(--danger); } .toast.info { border-left: 4px solid var(--accent); }
+
+  .tag-input-wrapper { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; align-items: center; }
+  .tag { display: inline-flex; align-items: center; gap: 4px; padding: 3px 9px; background: var(--accent-light); color: var(--accent); border-radius: 20px; font-size: 0.72rem; font-weight: 600; }
+  .tag-remove { cursor: pointer; font-size: 0.8rem; opacity: 0.7; transition: opacity 0.2s; } .tag-remove:hover { opacity: 1; }
+  .tag-input { padding: 5px 11px; border: 1px solid var(--border); border-radius: 20px; background: var(--bg-secondary); color: var(--text-primary); font-size: 0.78rem; width: 110px; font-family: inherit; }
+  .tag-input:focus { outline: none; border-color: var(--accent); }
+
+  .download-bar { display: flex; gap: 8px; flex-wrap: wrap; } .download-bar .btn { font-size: 0.78rem; padding: 8px 14px; }
+  .notif-banner { background: linear-gradient(135deg, #6c5ce7, #a29bfe); color: white; padding: 10px 18px; text-align: center; font-size: 0.82rem; font-weight: 600; display: none; align-items: center; justify-content: center; gap: 10px; cursor: pointer; }
+  .notif-banner.show { display: flex; } .notif-banner:hover { opacity: 0.9; }
+
+  .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); backdrop-filter: blur(8px); z-index: 500; display: none; align-items: center; justify-content: center; }
+  .modal-overlay.show { display: flex; }
+  .modal { background: var(--bg-card); border-radius: var(--radius); padding: 24px; max-width: 480px; width: 90%; max-height: 80vh; overflow-y: auto; box-shadow: 0 20px 60px rgba(0,0,0,0.3); animation: slideUp 0.4s ease; }
+  .modal h3 { margin-bottom: 14px; font-size: 1.1rem; } .modal-actions { display: flex; gap: 8px; margin-top: 18px; justify-content: flex-end; }
+
+  @media (max-width: 600px) { .header { padding: 10px 14px; } .logo { font-size: 1rem; } .card-body { padding: 14px; } .action-bar .btn { min-width: 90px; font-size: 0.78rem; padding: 8px 10px; } .btn { padding: 7px 12px; font-size: 0.78rem; } .mindmap-container { min-height: 350px; } .alert-buttons { flex-direction: column; } .alert-buttons .btn { width: 100%; justify-content: center; } }
+</style>
+</head>
+<body>
+
+<div id="notifBanner" class="notif-banner" onclick="requestNotifPermission()">🔔 Clique aqui para ativar notificações de lembretes <span style="margin-left:auto;cursor:pointer;font-size:1.1rem" onclick="event.stopPropagation();this.parentElement.classList.remove('show')">✕</span></div>
+
+<header class="header">
+  <div class="logo"><span class="logo-icon">🧠</span><span>Memória Externa</span></div>
+  <div class="header-actions">
+    <div class="download-bar">
+      <button class="btn btn-success" onclick="downloadAs('txt')">📄 Baixar TXT</button>
+      <button class="btn btn-primary" onclick="downloadAs('word')">📝 Baixar Word</button>
+    </div>
+    <button class="btn-icon" onclick="toggleTheme()" id="themeBtn" title="Alternar tema">🌙</button>
+  </div>
+</header>
+
+<main class="main-container">
+  <div>
+    <div class="card">
+      <div class="card-header"><h2>✏️ Nova Entrada</h2></div>
+      <div class="card-body">
+        <div class="type-selector">
+          <div class="type-btn active" onclick="selectType('idea',this)"><span class="icon">💡</span>Ideia</div>
+          <div class="type-btn" onclick="selectType('reminder',this)"><span class="icon">⏰</span>Lembrete</div>
+        </div>
+        <textarea class="text-input" id="mainInput" placeholder="Escreva sua ideia ou pensamento aqui..."></textarea>
+        <div class="audio-controls">
+          <button class="record-btn" id="recordBtn" onclick="toggleRecording()">🎤</button>
+          <div><div class="record-status" id="recordStatus">Gravar áudio</div><div style="font-size:0.68rem;color:var(--text-secondary)">Transcrição local automática</div></div>
+        </div>
+        <div id="reminderFields" style="display:none">
+          <div class="reminder-controls"><input type="datetime-local" class="reminder-input" id="reminderDate"><button class="btn btn-secondary" onclick="clearReminderDate()">Limpar</button></div>
+        </div>
+        <div class="tag-input-wrapper"><span style="font-size:0.78rem;color:var(--text-secondary)">Tags:</span><div id="tagsContainer"></div><input type="text" class="tag-input" id="tagInput" placeholder="+ tag" onkeydown="addTag(event)"></div>
+        <div class="action-bar">
+          <button class="btn btn-primary" onclick="saveEntry()">💾 Salvar</button>
+          <button class="btn btn-secondary" onclick="generateMindMap()">🗺️ Mapa Mental</button>
+          <button class="btn btn-secondary" onclick="clearInput()">🗑️ Limpar</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="card mindmap-section">
+      <div class="card-header"><h2>🗺️ Mapa Mental Interativo</h2><span id="mindmapCount" style="font-size:0.75rem;color:var(--text-secondary)"></span></div>
+      <div class="mindmap-select-bar">
+        <label>Selecionar entradas:</label>
+        <button class="btn btn-secondary" onclick="selectAllEntries()" style="font-size:0.72rem;padding:5px 10px">✅ Todas</button>
+        <button class="btn btn-secondary" onclick="deselectAllEntries()" style="font-size:0.72rem;padding:5px 10px">⬜ Limpar</button>
+        <button class="btn btn-primary" onclick="generateMindMapFromSelected()" style="font-size:0.72rem;padding:5px 10px">🗺️ Gerar</button>
+      </div>
+      <div class="card-body" style="padding:0">
+        <div class="mindmap-container" id="mindmapContainer">
+          <div class="mindmap-info" id="mindmapInfo">Nenhum mapa gerado</div>
+          <div class="mindmap-controls">
+            <button class="btn-icon" onclick="toggleAllNodes(true)" title="Expandir tudo">➕</button>
+            <button class="btn-icon" onclick="toggleAllNodes(false)" title="Recolher tudo">➖</button>
+          </div>
+          <div id="treeWrapper"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div>
+    <div class="card">
+      <div class="stats-bar">
+        <div class="stat-item">💡 <span class="stat-value" id="ideaCount">0</span> ideias</div>
+        <div class="stat-item">⏰ <span class="stat-value" id="reminderCount">0</span> lembretes</div>
+        <div class="stat-item">📝 Total: <span class="stat-value" id="totalCount">0</span></div>
+      </div>
+      <div class="card-header"><h2>📋 Minhas Entradas</h2><button class="btn btn-danger" onclick="clearAll()" style="font-size:0.72rem;padding:5px 10px">Limpar Tudo</button></div>
+      <div class="card-body">
+        <div class="search-wrapper"><input type="text" class="search-box" id="searchBox" placeholder="Buscar..." oninput="filterItems()"></div>
+        <div class="filter-tabs">
+          <button class="filter-tab active" onclick="setFilter('all',this)">Todos</button>
+          <button class="filter-tab" onclick="setFilter('idea',this)">💡 Ideias</button>
+          <button class="filter-tab" onclick="setFilter('reminder',this)">⏰ Lembretes</button>
+        </div>
+        <div class="items-container" id="itemsContainer">
+          <div class="empty-state"><div class="icon">📭</div><p>Nenhuma entrada ainda.<br>Comece escrevendo ou gravando sua primeira ideia!</p></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</main>
+
+<div class="alert-overlay" id="alertOverlay">
+  <div class="alert-box" id="alertBox">
+    <div class="alarm-indicator" id="alarmIndicator">
+      <div class="alarm-waves"><span></span><span></span><span></span><span></span><span></span></div>
+      ALARME TOCANDO
+    </div>
+    <div class="alert-icon" id="alertIcon">⏰</div>
+    <h3 id="alertTitle">Lembrete!</h3>
+    <p id="alertMessage">Você tem um lembrete pendente.</p>
+    <div class="alert-buttons">
+      <button class="btn btn-mute" id="muteBtn" onclick="muteAlarm()" style="display:none">🔇 Silenciar Alarme</button>
+      <button class="btn btn-primary" onclick="dismissAlert()">✅ Entendido</button>
+      <button class="btn btn-secondary" onclick="snoozeAlert()">😴 Adiar 5min</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="editReminderModal"><div class="modal"><h3>⏰ Editar Horário do Lembrete</h3><p id="editReminderText" style="font-size:0.88rem;color:var(--text-secondary);margin-bottom:14px"></p><div style="display:flex;flex-direction:column;gap:10px"><label style="font-size:0.82rem;font-weight:600;color:var(--text-secondary)">Nova data e hora:</label><input type="datetime-local" class="reminder-input" id="editReminderDate" style="width:100%"></div><div class="modal-actions"><button class="btn btn-secondary" onclick="closeEditReminder()">Cancelar</button><button class="btn btn-primary" onclick="saveEditReminder()">💾 Salvar</button></div></div></div>
+<div class="toast-container" id="toastContainer"></div>
+
+<script>
+let entries = []; let currentType = 'idea'; let currentFilter = 'all'; let isRecording = false;
+let recognition = null; let currentTags = []; let currentAlertItem = null; let editingReminderId = null;
+let selectedEntries = new Set();
+let alarmAudioCtx = null;
+let alarmLoopId = null;
+let alarmIsPlaying = false;
+
+document.addEventListener('DOMContentLoaded', () => {
+  loadEntries(); loadTheme(); renderItems(); updateStats(); initSpeechRecognition();
+  setDefaultReminderDate(); checkNotificationPermission(); startReminderChecker();
+  renderEmptyMindMap();
+});
+
+function loadTheme() { const s = localStorage.getItem('memoria-theme') || 'light'; document.documentElement.setAttribute('data-theme', s); document.getElementById('themeBtn').textContent = s === 'dark' ? '☀️' : '🌙'; }
+function toggleTheme() { const c = document.documentElement.getAttribute('data-theme'); const n = c === 'dark' ? 'light' : 'dark'; document.documentElement.setAttribute('data-theme', n); localStorage.setItem('memoria-theme', n); document.getElementById('themeBtn').textContent = n === 'dark' ? '☀️' : '🌙'; showToast(n === 'dark' ? '🌙 Modo escuro' : '☀️ Modo claro', 'info'); }
+function selectType(type, el) { currentType = type; document.querySelectorAll('.type-btn').forEach(b => b.classList.remove('active')); el.classList.add('active'); document.getElementById('reminderFields').style.display = type === 'reminder' ? 'block' : 'none'; document.getElementById('mainInput').placeholder = type === 'idea' ? 'Escreva sua ideia...' : 'Descreva o lembrete...'; }
+function setDefaultReminderDate() { const n = new Date(); n.setMinutes(n.getMinutes() + 30); document.getElementById('reminderDate').value = n.toISOString().slice(0, 16); }
+function clearReminderDate() { document.getElementById('reminderDate').value = ''; }
+
+function initSpeechRecognition() {
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SR) { document.getElementById('recordStatus').textContent = 'Navegador não suporta voz'; document.getElementById('recordBtn').style.opacity = '0.4'; document.getElementById('recordBtn').style.pointerEvents = 'none'; return; }
+  recognition = new SR(); recognition.lang = 'pt-BR'; recognition.continuous = true; recognition.interimResults = true;
+  recognition.onresult = (e) => { let f='', i=''; for(let r=e.resultIndex;r<e.results.length;r++) if(e.results[r].isFinal) f+=e.results[r][0].transcript; else i+=e.results[r][0].transcript; const inp=document.getElementById('mainInput'); if(f) inp.value+=(inp.value?' ':'')+f; if(i) document.getElementById('recordStatus').textContent='🎙️ '+i; };
+  recognition.onerror = () => { stopRecording(); }; recognition.onend = () => { if(isRecording) try { recognition.start(); } catch(e){} };
+}
+function toggleRecording() { isRecording ? stopRecording() : startRecording(); }
+function startRecording() { if(!recognition) return; try { recognition.start(); isRecording=true; document.getElementById('recordBtn').classList.add('recording'); document.getElementById('recordStatus').textContent='🎙️ Gravando...'; showToast('🎙️ Gravando...','info'); } catch(e){ showToast('⚠️ Erro','error'); } }
+function stopRecording() { if(recognition) { isRecording=false; recognition.stop(); document.getElementById('recordBtn').classList.remove('recording'); document.getElementById('recordStatus').textContent='Gravar áudio'; showToast('⏹️ Finalizado','success'); } }
+
+function addTag(e) { if(e.key==='Enter') { e.preventDefault(); const inp=document.getElementById('tagInput'); const t=inp.value.trim().toLowerCase(); if(t&&!currentTags.includes(t)) { currentTags.push(t); renderTags(); } inp.value=''; } }
+function renderTags() { document.getElementById('tagsContainer').innerHTML = currentTags.map((t,i)=>`<span class="tag">${t}<span class="tag-remove" onclick="removeTag(${i})">✕</span></span>`).join(''); }
+function removeTag(i) { currentTags.splice(i,1); renderTags(); }
+
+function saveEntry() { const t=document.getElementById('mainInput').value.trim(); if(!t) { showToast('⚠️ Escreva algo','error'); return; } entries.unshift({id:Date.now(),type:currentType,text:t,tags:[...currentTags],date:new Date().toISOString(),reminderDate:currentType==='reminder'?document.getElementById('reminderDate').value:null,reminderFired:false}); persistEntries(); renderItems(); updateStats(); clearInput(); showToast('✅ Salvo!','success'); }
+function clearInput() { document.getElementById('mainInput').value=''; currentTags=[]; renderTags(); setDefaultReminderDate(); }
+function persistEntries() { try { localStorage.setItem('memoria-entries', JSON.stringify(entries)); } catch(e) { try { sessionStorage.setItem('memoria-entries', JSON.stringify(entries)); } catch(e2){} } }
+function loadEntries() { try { const s=localStorage.getItem('memoria-entries'); if(s) entries=JSON.parse(s); } catch(e){ entries=[]; } }
+function deleteEntry(id) { entries=entries.filter(e=>e.id!==id); selectedEntries.delete(id); persistEntries(); renderItems(); updateStats(); showToast('🗑️ Removido','info'); }
+function clearAll() { if(!entries.length) return; if(confirm('Apagar tudo?')) { entries=[]; selectedEntries.clear(); persistEntries(); renderItems(); updateStats(); showToast('🗑️ Tudo limpo','info'); } }
+function editEntry(id) { const e=entries.find(x=>x.id===id); if(!e) return; const n=prompt('Editar:',e.text); if(n!==null&&n.trim()) { e.text=n.trim(); persistEntries(); renderItems(); showToast('✏️ Atualizado','success'); } }
+function copyEntry(id) { const e=entries.find(x=>x.id===id); if(!e) return; navigator.clipboard.writeText(e.text).then(()=>showToast('📋 Copiado!','success')); }
+
+function renderItems() {
+  const c=document.getElementById('itemsContainer'), s=document.getElementById('searchBox').value.toLowerCase();
+  let f=entries; if(currentFilter!=='all') f=f.filter(e=>e.type===currentFilter); if(s) f=f.filter(e=>e.text.toLowerCase().includes(s)||e.tags.some(t=>t.includes(s)));
+  if(!f.length) { c.innerHTML=`<div class="empty-state"><div class="icon">${s?'🔍':'📭'}</div><p>${s?'Nenhum resultado':'Nenhuma entrada ainda.'}</p></div>`; return; }
+  c.innerHTML=f.map(e=> {
+    const d=new Date(e.date), ds=d.toLocaleDateString('pt-BR',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'}), ir=e.type==='reminder';
+    const ri=e.reminderDate?`<div style="font-size:0.72rem;color:var(--reminder-color);margin-top:3px">⏰ ${new Date(e.reminderDate).toLocaleString('pt-BR')}</div>`:'';
+    const sel=selectedEntries.has(e.id);
+    return `<div class="item item-${e.type} ${sel?'selected':''}"><input type="checkbox" class="item-checkbox" ${sel?'checked':''} onchange="toggleSelectEntry(${e.id}, this.checked)" title="Selecionar"><div class="item-content"><span class="item-type-badge ${ir?'badge-reminder':'badge-idea'}">${ir?'⏰ Lembrete':'💡 Ideia'}</span><div class="item-text">${escapeHtml(e.text)}</div>${e.tags.length?`<div style="margin-bottom:4px">${e.tags.map(t=>`<span class="tag" style="font-size:0.62rem;padding:2px 7px">${t}</span>`).join(' ')}</div>`:''}${ri}<div class="item-meta"><span>${ds}</span><div class="item-actions">${ir?`<button class="item-action-btn" onclick="openEditReminder(${e.id})" title="Editar horário">🕐</button>`:''}<button class="item-action-btn" onclick="editEntry(${e.id})" title="Editar">✏️</button><button class="item-action-btn" onclick="copyEntry(${e.id})" title="Copiar">📋</button><button class="item-action-btn delete" onclick="deleteEntry(${e.id})" title="Excluir">🗑️</button></div></div></div></div>`;
+  }).join('');
+}
+function escapeHtml(t) { const d=document.createElement('div'); d.textContent=t; return d.innerHTML.replace(/\n/g,'<br>'); }
+function filterItems() { renderItems(); }
+function setFilter(f, el) { currentFilter=f; document.querySelectorAll('.filter-tab').forEach(t=>t.classList.remove('active')); el.classList.add('active'); renderItems(); }
+function updateStats() { document.getElementById('ideaCount').textContent=entries.filter(e=>e.type==='idea').length; document.getElementById('reminderCount').textContent=entries.filter(e=>e.type==='reminder').length; document.getElementById('totalCount').textContent=entries.length; }
+
+function toggleSelectEntry(id, c) { c ? selectedEntries.add(id) : selectedEntries.delete(id); renderItems(); }
+function selectAllEntries() { entries.forEach(e=>selectedEntries.add(e.id)); renderItems(); }
+function deselectAllEntries() { selectedEntries.clear(); renderItems(); }
+
+// MAPA MENTAL
+function generateMindMap() { const t=document.getElementById('mainInput').value.trim(); if(!t){showToast('⚠️ Escreva algo','error');return;} renderTree(extractConcepts(t,'Texto atual'),'Mapa: Texto atual'); }
+function generateMindMapFromSelected() { if(selectedEntries.size===0){if(!entries.length){showToast('⚠️ Sem entradas','error');return;}entries.forEach(e=>selectedEntries.add(e.id));} const sel=entries.filter(e=>selectedEntries.has(e.id)); renderTree(extractConcepts(sel.map(e=>e.text).join('. '),`${sel.length} entradas`),`Mapa: ${sel.length} entradas`); }
+
+function extractConcepts(text,src) {
+  const stops=new Set(['o','a','os','as','um','uma','de','do','da','dos','das','em','no','na','nos','nas','por','para','com','sem','que','e','ou','se','mas','como','não','sim','mais','muito','pouco','já','ainda','também','só','apenas','quando','onde','quem','porque','pois','então','logo','porém','contudo','todavia','este','esta','esses','essas','isso','isto','ele','ela','eles','elas','meu','minha','seu','sua','nosso','nossa','eu','tu','nós','me','te','lhe','nos','lhe','lhes','é','são','foi','ser','ter','terá','pode','poder','deve','dever','ir','irá','vai','fazer','faz','fez','esta','está','estou','tem','há','ha','era','será','teria','poderia','deveria','à','ao','aos','pelo','pela','pelos','pelas','num','numa','dum','duma','deste','desta','desse','dessa','daquele','daquela','nisso','nisto','sobre','entre','após','antes','durante','contra','segundo','conforme','sendo','tendo','havendo','fazendo','indo','vindo','dizendo','falando','pensando','sabendo','podendo','devendo','querendo','precisando','gostando','achando','sentindo','vendo','olhando','ouvindo','lendo','escrevendo','criando','trabalhando','vivendo','aprendendo','ensinando','ajudando','cuidando','amando','estar','estamos','estão','eram','fui','fomos','foram','serei','seremos','serão','tenho','temos','têm','tinha','tinham','tive','tivemos','tiveram','faco','fazemos','fazem','fiz','fizemos','fizeram','posso','podemos','podem','pude','pôde','pudemos','puderam','devo','devemos','devem','deverá','quero','queremos','querem','quis','quisemos','quiseram','preciso','precisa','precisamos','precisam','tudo','nada','algo','tão','tanto','bem','mal','aqui','ali','lá','cá','fora','dentro','cima','baixo','lado','parte','vez','vezes','modo','forma','jeito','dia','dias','ano','anos','hora','horas','tempo','gente','pessoa','pessoas','coisa','coisas','lugar','momento','mundo','vida','hoje','ontem','amanhã','sempre','nunca']);
+  const words=text.toLowerCase().replace(/[.,;:!?'"(){}[\]<>\/\\|@#$%^&*+=~`_\-\d]/g,' ').split(/\s+/).filter(w=>w.length>2&&!stops.has(w));
+  const freq={}; words.forEach(w=>{const s=w.replace(/(mente|ção|ções|idades|idade|izar|isar|ificar|sico|tica|tico)$/i,'');freq[s]=(freq[s]||0)+1;});
+  const sorted=Object.entries(freq).sort((a,b)=>b[1]-a[1]);
+  const nodes=[{id:0,text:sorted.slice(0,2).map(s=>s[0]).join(' · ')||'Tema',level:0,parent:null,detail:src,freq:0}];
+  const sents=text.split(/[.\n]+/).map(s=>s.trim()).filter(s=>s.length>10);
+  const pc=Math.min(5,sorted.length);
+  for(let i=1;i<=pc;i++){const w=sorted[i-1],r=sents.filter(s=>s.includes(w[0])).slice(0,1);nodes.push({id:i,text:w[0],level:1,parent:0,detail:`${w[1]}x`+(r.length?' • '+r[0].slice(0,40):''),freq:w[1]});}
+  let idx=pc+1; for(let i=pc;i<Math.min(sorted.length,12);i++){nodes.push({id:idx,text:sorted[i][0],level:2,parent:1+((i-pc)%pc),detail:`${sorted[i][1]}x`,freq:sorted[i][1]});idx++;}
+  entries.forEach(e=>{if(selectedEntries.has(e.id)||!selectedEntries.size)e.tags.forEach(t=>{nodes.push({id:idx,text:'#'+t,level:3,parent:0,detail:'Tag',freq:0});idx++;});});
+  const sa=selectedEntries.size>0?entries.filter(e=>selectedEntries.has(e.id)):entries.slice(0,6);
+  sa.forEach(e=>{if(e.text.length>15){nodes.push({id:idx,text:e.text.split(' ').slice(0,4).join(' ')+'...',level:4,parent:0,detail:e.text.slice(0,50),freq:0});idx++;}});
+  return nodes;
+}
+
+function renderTree(nodes,label) {
+  const wrap=document.getElementById('treeWrapper');
+  document.getElementById('mindmapInfo').textContent=label||`${nodes.length} nós`;
+  document.getElementById('mindmapCount').textContent=`${nodes.length} nós`;
+  const map={}; nodes.forEach(n=>map[n.id]={...n,children:[]});
+  const roots=[];
+  nodes.forEach(n=>{if(n.parent===null||n.parent===undefined)roots.push(map[n.id]);else if(map[n.parent])map[n.parent].children.push(map[n.id]);});
+  function build(nl,isRoot) { if(!nl.length)return''; let h=isRoot?'<div class="tree"><ul>':''; nl.forEach(node=>{const has=node.children.length>0;const exp=isRoot?'expanded':'collapsed';h+=`<li><div class="node-box level-${Math.min(node.level,4)} ${has?`has-children ${exp}`:''}" onclick="toggleMindMapNode(this)"><div style="font-weight:700">${node.text}</div>${node.detail?`<div style="font-size:0.7em;opacity:0.85;margin-top:3px;font-weight:400">${node.detail}</div>`:''}${has?'<div class="expand-indicator"></div>':''}</div>`;if(has)h+=`<ul class="${isRoot?'':'collapsed'}">${build(node.children,false)}</ul>`;h+=`</li>`;}); h+=isRoot?'</ul></div>':'';return h; }
+  wrap.innerHTML=build(roots,true);
+}
+function toggleMindMapNode(el) { if(!el.classList.contains('has-children'))return;const ul=el.nextElementSibling;if(!ul||ul.tagName!=='UL')return;const isExp=el.classList.contains('expanded');isExp?(el.classList.remove('expanded'),ul.classList.add('collapsed')):(el.classList.add('expanded'),ul.classList.remove('collapsed')); }
+function toggleAllNodes(exp) { document.querySelectorAll('.node-box.has-children').forEach(box=>{const ul=box.nextElementSibling;if(!ul||ul.tagName!=='UL')return;exp?box.classList.add('expanded'):box.classList.remove('expanded');exp?ul.classList.remove('collapsed'):ul.classList.add('collapsed');}); }
+function renderEmptyMindMap() { document.getElementById('treeWrapper').innerHTML='<div class="empty-state"><div class="icon">🗺️</div><p>Selecione entradas ou escreva uma ideia e clique em "Gerar"</p></div>'; }
+
+// DOWNLOADS
+function downloadAs(format) {
+  if(!entries.length){showToast('⚠️ Sem entradas','error');return;}
+  const ds=new Date().toLocaleDateString('pt-BR').replace(/\//g,'-');
+  if(format==='txt') {
+    let c='═══════════════════════════════════════════\n  🧠 MEMÓRIA EXTERNA\n═══════════════════════════════════════════\n\n';
+    entries.forEach((e,i)=>{c+=`【${i+1}】 ${e.type==='idea'?'💡':'⏰'} | ${new Date(e.date).toLocaleString('pt-BR')}\n${e.text}\n`;if(e.tags.length)c+=`🏷️ ${e.tags.join(', ')}\n`;if(e.reminderDate)c+=`⏰ ${new Date(e.reminderDate).toLocaleString('pt-BR')}\n`;c+='\n───────────────────────────────────────────\n\n';});
+    downloadFile(c,`memoria-${ds}.txt`,'text/plain'); showToast('📄 TXT baixado!','success');
+  } else if(format==='word') {
+    let h=`<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40"><head><meta charset="utf-8"><style>body{font-family:Calibri,sans-serif;padding:20px;color:#333}h1{color:#6c5ce7;border-bottom:3px solid #6c5ce7;padding-bottom:8px}.entry{margin:14px 0;padding:12px;border-left:4px solid #6c5ce7;background:#f8f9fa;border-radius:6px}.reminder{border-left-color:#e17055}.meta{color:#888;font-size:0.85em}table{width:100%;border-collapse:collapse;margin-top:15px}th,td{border:1px solid #ddd;padding:8px;font-size:0.9em}th{background:#6c5ce7;color:white}.badge{display:inline-block;padding:2px 8px;border-radius:10px;font-size:0.75em}.badge-idea{background:#e8e5ff;color:#6c5ce7}.badge-reminder{background:#ffe5e0;color:#e17055}</style></head><body><h1>🧠 Memória Externa</h1><p class="meta">Exportado: ${new Date().toLocaleString('pt-BR')}</p><table><tr><th>#</th><th>Tipo</th><th>Data</th><th>Conteúdo</th></tr>`;
+    entries.forEach((e,i)=>{h+=`<tr><td>${i+1}</td><td><span class="badge badge-${e.type}">${e.type==='idea'?'💡 Ideia':'⏰ Lemb.'}</span></td><td>${new Date(e.date).toLocaleDateString('pt-BR')}</td><td>${e.text.slice(0,70)}${e.text.length>70?'...':''}</td></tr>`;});
+    h+=`</table><h2>Detalhes</h2>`;
+    entries.forEach(e=>{h+=`<div class="entry ${e.type==='reminder'?'reminder':''}"><strong>${e.text}</strong><br><span class="meta">${new Date(e.date).toLocaleString('pt-BR')}${e.tags.length?' | 🏷️ '+e.tags.join(', '):''}${e.reminderDate?' | ⏰ '+new Date(e.reminderDate).toLocaleString('pt-BR'):''}</span></div>`;});
+    h+='</body></html>';
+    const b=new Blob(['\ufeff',h],{type:'application/msword'}),u=URL.createObjectURL(b);
+    const a=document.createElement('a');a.href=u;a.download=`memoria-${ds}.doc`;a.click();URL.revokeObjectURL(u);
+    showToast('📝 Word baixado!','success');
+  }
+}
+function downloadFile(c,f,m){const b=new Blob([c],{type:m+';charset=utf-8'}),u=URL.createObjectURL(b),a=document.createElement('a');a.href=u;a.download=f;a.click();URL.revokeObjectURL(u);}
+
+// ALARME EM LOOP CONTÍNUO
+function playAlarmTone() {
+  if (!alarmAudioCtx) {
+    try { alarmAudioCtx = new (window.AudioContext || window.webkitAudioContext)(); } catch(e) { return; }
+  }
+  if (alarmAudioCtx.state === 'suspended') { alarmAudioCtx.resume(); }
+
+  // Sequência de notas mais longa e marcante
+  const now = alarmAudioCtx.currentTime;
+  const sequence = [
+    {f:523.25, t:0, d:0.3},   // C5
+    {f:659.25, t:0.2, d:0.3},  // E5
+    {f:783.99, t:0.4, d:0.3},  // G5
+    {f:1046.50, t:0.6, d:0.4}, // C6
+    {f:783.99, t:1.1, d:0.3},  // G5
+    {f:1046.50, t:1.3, d:0.5}, // C6
+  ];
+
+  sequence.forEach(note => {
+    const osc = alarmAudioCtx.createOscillator();
+    const gain = alarmAudioCtx.createGain();
+    osc.connect(gain); gain.connect(alarmAudioCtx.destination);
+    osc.frequency.value = note.f;
+    osc.type = 'sine';
+    gain.gain.setValueAtTime(0.35, now + note.t);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + note.t + note.d);
+    osc.start(now + note.t);
+    osc.stop(now + note.t + note.d + 0.05);
+  });
+}
+
+function startAlarmLoop() {
+  if (alarmIsPlaying) return;
+  alarmIsPlaying = true;
+
+  // Toca imediatamente
+  playAlarmTone();
+
+  // Repete a cada 2.5 segundos
+  alarmLoopId = setInterval(() => {
+    if (alarmIsPlaying) { playAlarmTone(); }
+  }, 2500);
+
+  // Atualiza visual
+  document.getElementById('alertOverlay').classList.add('alarm-active');
+  document.getElementById('alertBox').classList.add('alarm-active');
+  document.getElementById('alertIcon').classList.add('alarm-active');
+  document.getElementById('alarmIndicator').classList.add('active');
+  document.getElementById('muteBtn').style.display = 'inline-flex';
+}
+
+function stopAlarmLoop() {
+  alarmIsPlaying = false;
+  if (alarmLoopId) { clearInterval(alarmLoopId); alarmLoopId = null; }
+
+  document.getElementById('alertOverlay').classList.remove('alarm-active');
+  document.getElementById('alertBox').classList.remove('alarm-active');
+  document.getElementById('alertIcon').classList.remove('alarm-active');
+  document.getElementById('alarmIndicator').classList.remove('active');
+  document.getElementById('muteBtn').style.display = 'none';
+}
+
+// REMINDERS
+function startReminderChecker() { setInterval(checkReminders, 5000); }
+function checkReminders() {
+  const now = new Date(); let hit = false;
+  entries.forEach(e => {
+    if(e.type==='reminder' && e.reminderDate && !e.reminderFired && now >= new Date(e.reminderDate)) {
+      e.reminderFired = true; persistEntries(); triggerAlert(e); hit = true;
+    }
+  });
+  if(hit) { renderItems(); updateStats(); }
+}
+
+function triggerAlert(e) {
+  currentAlertItem = e;
+  document.getElementById('alertTitle').textContent = '⏰ Lembrete!';
+  document.getElementById('alertMessage').textContent = e.text;
+  document.getElementById('alertOverlay').classList.add('show');
+
+  // Inicia alarme em loop
+  startAlarmLoop();
+
+  // Flash visual
+  const f = document.createElement('div'); f.className='flash'; document.body.appendChild(f);
+  setTimeout(()=>f.remove(), 600);
+
+  // Notificação do navegador
+  if(Notification.permission==='granted') {
+    new Notification('🧠 Memória Externa',{body:'⏰ '+e.text,icon:'🧠'});
+  }
+}
+
+function dismissAlert() {
+  stopAlarmLoop();
+  document.getElementById('alertOverlay').classList.remove('show');
+  currentAlertItem = null;
+}
+
+function muteAlarm() {
+  // Silencia o som mas mantém o alerta visível
+  stopAlarmLoop();
+  showToast('🔇 Alarme silenciado', 'info');
+}
+
+function snoozeAlert() {
+  if(currentAlertItem) {
+    currentAlertItem.reminderFired = false;
+    currentAlertItem.reminderDate = new Date(Date.now() + 5*60000).toISOString().slice(0,16);
+    persistEntries(); renderItems();
+  }
+  stopAlarmLoop();
+  document.getElementById('alertOverlay').classList.remove('show');
+  showToast('😴 Adiado 5min', 'info');
+}
+
+function openEditReminder(id) { const e=entries.find(x=>x.id===id); if(!e) return; editingReminderId=id; document.getElementById('editReminderText').textContent=e.text; document.getElementById('editReminderDate').value=e.reminderDate||''; document.getElementById('editReminderModal').classList.add('show'); }
+function closeEditReminder() { document.getElementById('editReminderModal').classList.remove('show'); editingReminderId=null; }
+function saveEditReminder() { if(!editingReminderId) return; const e=entries.find(x=>x.id===editingReminderId); if(!e) return; const d=document.getElementById('editReminderDate').value; if(d) { e.reminderDate=d; e.reminderFired=false; persistEntries(); renderItems(); showToast('🕐 Atualizado!','success'); } closeEditReminder(); }
+document.getElementById('editReminderModal').addEventListener('click', function(ev){ if(ev.target===this) closeEditReminder(); });
+
+function checkNotificationPermission() { if('Notification'in window&&Notification.permission==='default') document.getElementById('notifBanner').classList.add('show'); }
+function requestNotifPermission() { if('Notification'in window) Notification.requestPermission().then(p=>{ document.getElementById('notifBanner').classList.remove('show'); if(p==='granted') showToast('🔔 Ativas!','success'); }); }
+function showToast(msg,type='info') { const c=document.getElementById('toastContainer'), t=document.createElement('div'); t.className=`toast ${type}`; t.textContent=msg; c.appendChild(t); setTimeout(()=>{ t.style.opacity='0'; t.style.transform='translateX(100%)'; t.style.transition='all 0.3s'; setTimeout(()=>t.remove(),300); },3000); }
+document.addEventListener('keydown', e=>{ if(e.ctrlKey&&e.key==='s'){ e.preventDefault(); saveEntry(); } if(e.key==='Escape'){ dismissAlert(); closeEditReminder(); } });
+</script>
+</body>
+</html>
