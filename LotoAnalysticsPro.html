@@ -37,7 +37,6 @@
             --freq-med: linear-gradient(135deg, #f59e0b, #d97706);
             --freq-med-low: linear-gradient(135deg, #f97316, #ea580c);
             --freq-low: linear-gradient(135deg, #6b7280, #4b5563);
-            /* Cores do Atualizador */
             --update-bg: #fff0fc;
             --update-border: #930089;
             --update-text: #72006a;
@@ -213,22 +212,19 @@
         .btn-outline { background: transparent; border: 1px solid var(--border); color: var(--text-main); }
         .btn-outline:hover { background: var(--bg-body); }
         
-        /* Botão de Atualização Específico */
         .btn-update {
             background: var(--update-bg);
             color: var(--update-text);
             border: 1px solid var(--update-border);
             margin-top: 10px;
         }
-        .btn-update:hover {
-            background: var(--update-border);
-            color: white;
-        }
+        .btn-update:hover { background: var(--update-border); color: white; }
+        
         .btn-download {
             background: var(--secondary);
             color: white;
             margin-top: 10px;
-            display: none; /* Hidden by default */
+            display: none;
         }
         .btn-download:hover { background: #059669; }
 
@@ -718,7 +714,6 @@
         .mode-btn.hot.active { border-color: var(--ball-hot); background: var(--ball-hot); }
         .mode-btn.mixed.active { border-color: var(--primary); background: var(--primary); }
 
-        /* Estilo específico para área de atualização */
         .update-area {
             margin-top: 1.5rem;
             padding: 1rem;
@@ -804,7 +799,6 @@
                     </div>
                     <div id="updateStatus" style="margin-top:10px; font-size:0.85rem;"></div>
                 </div>
-                <!-- FIM DA ÁREA DE ATUALIZAÇÃO -->
 
             </div>
 
@@ -883,7 +877,7 @@
                     </div>
                     <div style="background: var(--bg-body); padding: 1rem; border-radius: 10px;">
                         <strong style="color: var(--ball-potential);">🎯 Top 10 Maior Potencial</strong>
-                        <p style="font-size: 0.85rem; color: var(--text-muted); margin-top: 0.3rem;">Probabilidade ponderada</p>
+                        <p style="font-size: 0.85rem; color: var(--text-muted); margin-top: 0.3rem;">Aleatório com probabilidade ponderada</p>
                     </div>
                     <div style="background: var(--bg-body); padding: 1rem; border-radius: 10px;">
                         <strong style="color: var(--primary);">📊 Todos (1-25) com %</strong>
@@ -936,14 +930,17 @@
                         </div>
                     </div>
 
-                    <!-- MOVIDO AQUI: Top 10 Potencial (Entre Legenda e Sequências) -->
+                    <!-- Top 10 Potencial Dinâmico (Entre Legenda e Sequências) -->
                     <div class="top-card potential" style="margin-bottom: 2rem;">
                         <div class="card-header">
                             <i class="fa-solid fa-bullseye" style="color: var(--ball-potential);"></i>
-                            <h2>🎯 Top 10 Maior Potencial</h2>
+                            <h2>🎯 Top 10 Maior Potencial <span style="font-size:0.8rem; font-weight:400; opacity:0.8;">(Aleatório)</span></h2>
                         </div>
                         <p style="color: var(--text-muted); margin-bottom: 1rem; font-size: 0.9rem;">
-                            Calculado com frequência histórica + probabilidade ponderada. Use estes números como referência estratégica.
+                            Números selecionados aleatoriamente com base na probabilidade ponderada. 
+                            <button class="btn-outline" style="width:auto; padding:0.3rem 0.8rem; font-size:0.75rem; margin-left:10px;" onclick="refreshPotential()">
+                                🔄 Gerar Novamente
+                            </button>
                         </p>
                         <div class="top-grid" id="potentialGrid"></div>
                     </div>
@@ -1001,7 +998,6 @@
                             <div class="top-grid" id="bottom15Grid"></div>
                         </div>
                     </div>
-                    <!-- Top 10 Potential REMOVIDO daqui -->
                 </div>
 
                 <div id="tab-cold" class="tab-content">
@@ -1064,6 +1060,9 @@
         let updateWorkbook = null;
         let updateJsonData = [];
         let lastContestInFile = 0;
+        
+        // === NOVO: Variável para Top 10 Potencial Dinâmico ===
+        let dynamicTop10Potential = [];
 
         // --- Theme Toggle ---
         function toggleTheme() {
@@ -1089,6 +1088,11 @@
             document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
             event.currentTarget.classList.add('active');
             document.getElementById(`tab-${tabName}`).classList.add('active');
+            
+            // Re-render potential grid when tab is switched to ensure it's visible
+            if(tabName === 'sequences' && dynamicTop10Potential.length > 0) {
+                renderTop10Potential(dynamicTop10Potential);
+            }
         }
 
         function setAnalysisMode(mode, btn) {
@@ -1161,6 +1165,54 @@
         document.getElementById('seqLength').addEventListener('input', e => validateSeqLength(e.target.value));
         document.getElementById('seqLength').addEventListener('blur', e => validateSeqLength(e.target.value));
 
+        // === NOVA FUNÇÃO: Gerar Top 10 Potencial Aleatório com Peso ===
+        function generateRandomTop10Potential() {
+            // Cria array de números 1-25 com suas probabilidades
+            const numbers = [];
+            for(let i = 1; i <= 25; i++) {
+                if(probabilities[i] > 0) {
+                    numbers.push({ num: i, weight: probabilities[i] });
+                }
+            }
+            
+            // Seleciona 10 números únicos usando amostragem ponderada
+            const selected = [];
+            const available = [...numbers];
+            
+            while(selected.length < 10 && available.length > 0) {
+                // Calcula soma total dos pesos
+                const totalWeight = available.reduce((sum, item) => sum + item.weight, 0);
+                
+                // Gera número aleatório entre 0 e totalWeight
+                let random = Math.random() * totalWeight;
+                
+                // Seleciona o número baseado no peso acumulado
+                for(let i = 0; i < available.length; i++) {
+                    random -= available[i].weight;
+                    if(random <= 0) {
+                        selected.push(available[i].num);
+                        available.splice(i, 1); // Remove para não repetir
+                        break;
+                    }
+                }
+            }
+            
+            // Ordena numericamente para exibição
+            return selected.sort((a, b) => a - b);
+        }
+
+        // === NOVA FUNÇÃO: Refresh manual do Top 10 Potencial ===
+        function refreshPotential() {
+            if(Object.keys(probabilities).length === 0) {
+                showToast('Carregue um arquivo primeiro.', 'error');
+                return;
+            }
+            
+            dynamicTop10Potential = generateRandomTop10Potential();
+            renderTop10Potential(dynamicTop10Potential);
+            showToast('Top 10 Potencial renovado! 🎲');
+        }
+
         // --- File Handling & Updater Init ---
         document.getElementById('fileInput').addEventListener('change', async (e) => {
             const file = e.target.files[0];
@@ -1202,22 +1254,17 @@
             const btnDownload = document.getElementById('btnDownloadUpdate');
             const statusDiv = document.getElementById('updateStatus');
             
-            // Reset UI
             updateSection.style.display = 'block';
             btnCheck.style.display = 'inline-flex';
             btnDownload.style.display = 'none';
             statusDiv.innerHTML = '';
             
-            // Preparar dados para o atualizador
             updateWorkbook = workbook;
             
-            // Limpeza similar ao código original do atualizador
-            // Assumindo que a coluna 0 é o número do concurso
             updateJsonData = rawData.filter(row => {
                 return row.length > 0 && !isNaN(parseInt(row[0])) && row[0] !== "Concurso";
             });
 
-            // Ordenar
             updateJsonData.sort((a, b) => parseInt(a[0]) - parseInt(b[0]));
 
             if (updateJsonData.length > 0) {
@@ -1244,11 +1291,8 @@
                 let foundNew = false;
                 let nextContestToCheck = lastContestInFile + 1;
                 
-                // Tenta buscar até 5 concursos à frente
                 for (let i = 0; i < 5; i++) {
                     const contestNumber = nextContestToCheck + i;
-                    
-                    // API Pública
                     const response = await fetch(`https://loteriascaixa-api.herokuapp.com/api/lotofacil/${contestNumber}`);
                     
                     if (response.ok) {
@@ -1256,7 +1300,6 @@
                         
                         if (data.dezenas && data.dezenas.length === 15) {
                             const newDezenas = data.dezenas.map(n => parseInt(n));
-                            // Formato esperado: [Concurso, D1...D15]
                             const newRow = [data.concurso, ...newDezenas];
                             
                             updateJsonData.push(newRow);
@@ -1272,7 +1315,6 @@
                 btnCheck.disabled = false;
 
                 if (foundNew) {
-                    // Atualizar Workbook na memória
                     const header = ["Concurso", "Bola1", "Bola2", "Bola3", "Bola4", "Bola5", "Bola6", "Bola7", "Bola8", "Bola9", "Bola10", "Bola11", "Bola12", "Bola13", "Bola14", "Bola15"];
                     const finalData = [header, ...updateJsonData];
                     const newWorksheet = XLSX.utils.aoa_to_sheet(finalData);
@@ -1280,13 +1322,11 @@
                     const firstSheetName = updateWorkbook.SheetNames[0];
                     updateWorkbook.Sheets[firstSheetName] = newWorksheet;
 
-                    // Mostrar sucesso e botão de download
                     statusDiv.innerHTML = `<span style="color:var(--secondary)">✅ Sucesso! Atualizado até o concurso ${lastContestInFile}.</span>`;
                     document.getElementById('lastContestDisplay').innerText = lastContestInFile;
                     
                     btnDownload.style.display = 'inline-flex';
                     
-                    // Gerar Blob para download
                     const wbout = XLSX.write(updateWorkbook, {bookType:'xlsx', type:'array'});
                     const blob = new Blob([wbout], {type: "application/octet-stream"});
                     btnDownload.href = URL.createObjectURL(blob);
@@ -1351,8 +1391,11 @@
             
             renderTop15MostFrequent();
             renderTop15LeastFrequent();
-            renderTop10Potential();
             renderFullFrequencyList();
+            
+            // === GERA Top 10 Potencial inicial (será substituído na análise) ===
+            dynamicTop10Potential = generateRandomTop10Potential();
+            renderTop10Potential(dynamicTop10Potential);
         }
 
         function sequenceExists(sequence) {
@@ -1436,10 +1479,14 @@
                 leastFrequentNumbers = sortedByFreqAsc.slice(0, 8).map(item => item.num);
                 extraGames = generateExtraGames(2, seqLength);
 
+                // === GERA NOVO Top 10 Potencial Aleatório a cada análise ===
+                dynamicTop10Potential = generateRandomTop10Potential();
+
                 renderColdNumbers(coldNumbers, fixedBaseNumbers);
                 renderSequences(seqLength);
                 renderFrequencyAnalysis(sortedByFreqAsc);
                 renderExtraGames(seqLength);
+                renderTop10Potential(dynamicTop10Potential); // Re-render com novos números
                 
                 document.getElementById('welcomeState').style.display = 'none';
                 document.getElementById('resultsState').classList.add('active');
@@ -1451,7 +1498,7 @@
                 document.querySelector('.tab-btn:first-child').classList.add('active');
                 document.getElementById('tab-sequences').classList.add('active');
                 
-                showToast(`Análise concluída! Modo: ${analysisMode === 'cold' ? 'Frios' : analysisMode === 'hot' ? 'Quentes' : 'Mistos'}`);
+                showToast(`Análise concluída! Top 10 Potencial renovado. 🎲`);
 
             } catch (err) {
                 showToast('Erro: ' + err.message, 'error');
@@ -1597,14 +1644,20 @@
             });
         }
 
-        function renderTop10Potential() {
+        // === FUNÇÃO ATUALIZADA: Renderiza Top 10 Potencial Dinâmico ===
+        function renderTop10Potential(potentialNumbers) {
             const grid = document.getElementById('potentialGrid');
             grid.innerHTML = '';
-            const sorted = Object.entries(probabilities).sort((a, b) => b[1] - a[1]).slice(0, 10);
             
-            sorted.forEach(([num, prob], idx) => {
-                const pct = (prob * 100).toFixed(1);
+            // Se não recebeu números, gera novos
+            if(!potentialNumbers || potentialNumbers.length === 0) {
+                potentialNumbers = generateRandomTop10Potential();
+            }
+            
+            potentialNumbers.forEach((num, idx) => {
+                const pct = (probabilities[num] * 100).toFixed(1);
                 const freq = allFrequencies[num] || 0;
+                
                 const item = document.createElement('div');
                 item.className = 'top-item potential grad-1';
                 item.innerHTML = `
@@ -1613,7 +1666,7 @@
                     <div class="top-freq">${freq}x</div>
                     <div class="top-pct" style="color:var(--ball-potential); font-weight:600;">${pct}%</div>
                 `;
-                item.title = `Probabilidade: ${pct}% | Frequência: ${freq}x`;
+                item.title = `Probabilidade: ${pct}% | Frequência histórica: ${freq}x`;
                 grid.appendChild(item);
             });
         }
