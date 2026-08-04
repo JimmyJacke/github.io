@@ -1,0 +1,609 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Controle de Gastos</title>
+    <style>
+        :root {
+            --primary: #2563eb;
+            --primary-dark: #1d4ed8;
+            --primary-light: #dbeafe;
+            --success: #22c55e;
+            --warning: #f59e0b;
+            --danger: #ef4444;
+            --danger-light: #fee2e2;
+            --bg: #f8fafc;
+            --card: #ffffff;
+            --text: #0f172a;
+            --text-2: #475569;
+            --text-3: #94a3b8;
+            --border: #e2e8f0;
+            --radius: 14px;
+            --radius-sm: 10px;
+            --shadow: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
+            --shadow-md: 0 4px 12px rgba(0,0,0,0.08);
+            --transition: 0.2s ease;
+        }
+        *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+            -webkit-font-smoothing: antialiased;
+        }
+        .header {
+            background: var(--primary);
+            color: #fff;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            box-shadow: 0 2px 12px rgba(37,99,235,0.25);
+        }
+        .header-inner {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 14px 16px 0;
+        }
+        .header-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+        .logo { font-size: 1.15rem; font-weight: 800; }
+        .nav-tabs {
+            display: flex;
+            gap: 2px;
+            overflow-x: auto;
+            scrollbar-width: none;
+        }
+        .nav-tabs::-webkit-scrollbar { display: none; }
+        .nav-tab {
+            flex: 1;
+            padding: 10px 8px;
+            border: none;
+            background: rgba(255,255,255,0.08);
+            color: rgba(255,255,255,0.7);
+            border-radius: 10px 10px 0 0;
+            font-size: 0.78rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all var(--transition);
+            white-space: nowrap;
+        }
+        .nav-tab.active { background: var(--bg); color: var(--primary); }
+        .nav-tab:hover:not(.active) { background: rgba(255,255,255,0.15); color: #fff; }
+        .main { max-width: 900px; margin: 0 auto; padding: 16px; padding-bottom: 100px; }
+        .view { display: none; }
+        .view.active { display: block; animation: fadeIn 0.2s ease; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+        .summary-cards { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 20px; }
+        .summary-card {
+            background: var(--card);
+            border-radius: var(--radius);
+            padding: 14px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            box-shadow: var(--shadow);
+            border-left: 4px solid transparent;
+            transition: transform var(--transition);
+        }
+        .summary-card:hover { transform: translateY(-2px); }
+        .sc-hoje { border-color: var(--primary); }
+        .sc-semana { border-color: var(--success); }
+        .sc-mes { border-color: var(--warning); }
+        .sc-ano { border-color: var(--danger); }
+        .sc-icon { font-size: 1.4rem; flex-shrink: 0; }
+        .sc-label { display: block; font-size: 0.68rem; font-weight: 600; color: var(--text-3); text-transform: uppercase; letter-spacing: 0.5px; }
+        .sc-value { display: block; font-size: 1.05rem; font-weight: 800; color: var(--text); margin-top: 1px; }
+        .section-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+        .section-header h2 { font-size: 1rem; font-weight: 700; }
+        .view-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; gap: 8px; }
+        .view-header h2 { flex: 1; text-align: center; font-size: 0.95rem; font-weight: 700; }
+        .btn-nav {
+            width: 36px; height: 36px; border-radius: 10px; border: 1px solid var(--border);
+            background: var(--card); font-size: 1.2rem; cursor: pointer;
+            display: flex; align-items: center; justify-content: center;
+            transition: all var(--transition); flex-shrink: 0; color: var(--text);
+        }
+        .btn-nav:hover { background: var(--bg); }
+        .btn { padding: 9px 18px; border-radius: 10px; border: none; font-size: 0.85rem; font-weight: 600; cursor: pointer; transition: all var(--transition); }
+        .btn-primary { background: var(--primary); color: #fff; }
+        .btn-primary:hover { background: var(--primary-dark); }
+        .btn-secondary { background: var(--bg); color: var(--text); border: 1px solid var(--border); }
+        .btn-secondary:hover { background: var(--border); }
+        .btn-block { width: 100%; padding: 12px; font-size: 0.95rem; }
+        .gastos-list { display: flex; flex-direction: column; gap: 6px; }
+        .gasto-card {
+            background: var(--card); border-radius: var(--radius-sm); padding: 12px;
+            display: flex; align-items: center; gap: 10px; box-shadow: var(--shadow);
+            transition: all var(--transition);
+        }
+        .gasto-card:hover { box-shadow: var(--shadow-md); transform: translateX(3px); }
+        .gasto-icon {
+            width: 38px; height: 38px; border-radius: 10px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 1.1rem; flex-shrink: 0;
+        }
+        .gasto-icon.alimentacao { background: #fef3c7; }
+        .gasto-icon.transporte { background: #dbeafe; }
+        .gasto-icon.moradia { background: #e0e7ff; }
+        .gasto-icon.saude { background: #fce7f3; }
+        .gasto-icon.lazer { background: #d1fae5; }
+        .gasto-icon.educacao { background: #ede9fe; }
+        .gasto-icon.outros { background: #f1f5f9; }
+        .gasto-info { flex: 1; min-width: 0; }
+        .gasto-descricao { font-weight: 600; font-size: 0.88rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .gasto-meta { font-size: 0.72rem; color: var(--text-3); margin-top: 1px; }
+        .gasto-valor { font-weight: 700; font-size: 0.92rem; color: var(--danger); white-space: nowrap; }
+        .gasto-actions { display: flex; gap: 4px; flex-shrink: 0; }
+        .gasto-actions button {
+            width: 30px; height: 30px; border-radius: 8px; border: none; cursor: pointer;
+            display: flex; align-items: center; justify-content: center; font-size: 0.8rem;
+            transition: all var(--transition);
+        }
+        .btn-edit { background: var(--primary-light); color: var(--primary); }
+        .btn-edit:hover { background: #bfdbfe; }
+        .btn-delete { background: var(--danger-light); color: var(--danger); }
+        .btn-delete:hover { background: #fecaca; }
+        .day-group { margin-bottom: 16px; }
+        .day-header {
+            display: flex; justify-content: space-between; align-items: center;
+            font-size: 0.72rem; font-weight: 700; color: var(--text-3);
+            text-transform: uppercase; letter-spacing: 0.3px; padding: 6px 0;
+            border-bottom: 1px solid var(--border); margin-bottom: 6px;
+        }
+        .day-total { color: var(--text-2); font-weight: 600; text-transform: none; letter-spacing: 0; }
+        .modal {
+            display: none; position: fixed; inset: 0;
+            background: rgba(0,0,0,0.4); backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px);
+            z-index: 200; align-items: flex-end; justify-content: center;
+        }
+        .modal.active { display: flex; }
+        .modal-content {
+            background: var(--card); border-radius: 20px 20px 0 0; width: 100%; max-width: 500px;
+            max-height: 90vh; overflow-y: auto; animation: slideUp 0.25s ease;
+        }
+        @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+        .modal-header {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 18px 20px; border-bottom: 1px solid var(--border);
+        }
+        .modal-header h2 { font-size: 1.05rem; font-weight: 700; }
+        .btn-close {
+            width: 32px; height: 32px; border-radius: 8px; border: none;
+            background: var(--bg); font-size: 1.3rem; cursor: pointer;
+            display: flex; align-items: center; justify-content: center;
+            color: var(--text-2); transition: background var(--transition);
+        }
+        .btn-close:hover { background: var(--border); }
+        #form-gasto { padding: 20px; }
+        .form-group { margin-bottom: 14px; }
+        .form-group label { display: block; font-size: 0.78rem; font-weight: 600; margin-bottom: 5px; color: var(--text-2); }
+        .form-group input, .form-group select {
+            width: 100%; padding: 11px 12px; border: 1.5px solid var(--border);
+            border-radius: var(--radius-sm); font-size: 0.92rem; background: var(--bg);
+            transition: border-color var(--transition); color: var(--text);
+        }
+        .form-group input:focus, .form-group select:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px rgba(37,99,235,0.1); }
+        .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+        .form-actions { display: flex; gap: 10px; margin-top: 18px; }
+        .form-actions .btn { flex: 1; padding: 12px; }
+        .fab {
+            display: none; position: fixed; bottom: 88px; right: 20px;
+            width: 52px; height: 52px; border-radius: 16px; background: var(--primary);
+            color: #fff; font-size: 1.6rem; border: none; cursor: pointer;
+            box-shadow: 0 4px 16px rgba(37,99,235,0.35); z-index: 50;
+            transition: transform var(--transition); align-items: center; justify-content: center;
+        }
+        .fab:hover { transform: scale(1.08); }
+        .export-bar {
+            position: fixed; bottom: 0; left: 0; right: 0; background: var(--card);
+            padding: 10px 16px; display: flex; gap: 10px; justify-content: center;
+            box-shadow: 0 -2px 12px rgba(0,0,0,0.06); z-index: 50;
+        }
+        .btn-export {
+            padding: 8px 16px; border-radius: 8px; border: 1px solid var(--border);
+            background: var(--bg); font-size: 0.8rem; font-weight: 600; cursor: pointer;
+            transition: all var(--transition); color: var(--text-2);
+        }
+        .btn-export:hover { background: var(--border); }
+        .empty-state { text-align: center; padding: 40px 20px; }
+        .empty-state-icon { font-size: 2.5rem; margin-bottom: 10px; }
+        .empty-title { font-size: 0.95rem; font-weight: 600; color: var(--text-2); margin-bottom: 4px; }
+        .empty-desc { font-size: 0.82rem; color: var(--text-3); line-height: 1.5; }
+
+        @media (max-width: 480px) {
+            .header-inner { padding: 8px 12px 0; }
+            .logo { font-size: 1rem; }
+            .nav-tab { padding: 8px 6px; font-size: 0.72rem; }
+            .main { padding: 10px; padding-bottom: 90px; }
+            .summary-cards { gap: 8px; }
+            .summary-card { padding: 10px; gap: 8px; border-radius: var(--radius-sm); }
+            .sc-icon { font-size: 1.1rem; }
+            .sc-label { font-size: 0.62rem; }
+            .sc-value { font-size: 0.88rem; }
+            .gasto-card { padding: 10px; gap: 8px; }
+            .gasto-icon { width: 32px; height: 32px; font-size: 0.95rem; }
+            .gasto-descricao { font-size: 0.82rem; }
+            .gasto-meta { font-size: 0.68rem; }
+            .gasto-valor { font-size: 0.82rem; }
+            .gasto-actions button { width: 26px; height: 26px; font-size: 0.72rem; }
+            .day-header { font-size: 0.68rem; }
+            .section-header .btn { display: none; }
+            .fab { display: flex; width: 46px; height: 46px; font-size: 1.4rem; bottom: 76px; right: 14px; }
+            .export-bar { padding: 8px 10px; gap: 6px; }
+            .btn-export { padding: 6px 10px; font-size: 0.72rem; }
+            .form-row { grid-template-columns: 1fr; }
+            .empty-state { padding: 28px 12px; }
+            .empty-state-icon { font-size: 2rem; }
+        }
+        @media (min-width: 481px) and (max-width: 1023px) {
+            .summary-card { padding: 14px; }
+            .sc-value { font-size: 1.1rem; }
+        }
+        @media (min-width: 1024px) {
+            .header-inner { padding: 14px 24px 0; }
+            .logo { font-size: 1.3rem; }
+            .nav-tabs { justify-content: center; }
+            .nav-tab { flex: none; padding: 10px 20px; font-size: 0.85rem; }
+            .main { padding: 24px; }
+            .summary-cards { grid-template-columns: repeat(4, 1fr); gap: 12px; }
+            .summary-card { padding: 16px; }
+            .sc-value { font-size: 1.2rem; }
+            .gasto-card { padding: 16px 20px; gap: 14px; }
+            .gasto-icon { width: 42px; height: 42px; font-size: 1.2rem; }
+            .gasto-descricao { font-size: 0.95rem; }
+            .gasto-valor { font-size: 1rem; }
+            .modal-content { border-radius: 20px; margin: auto; }
+            .modal { align-items: center; background: rgba(0,0,0,0.3); }
+            .fab { display: none !important; }
+            .section-header .btn { display: inline-flex; }
+        }
+    </style>
+</head>
+<body>
+    <header class="header">
+        <div class="header-inner">
+            <div class="header-top">
+                <h1 class="logo">💰 Meus Gastos</h1>
+            </div>
+            <nav class="nav-tabs">
+                <button class="nav-tab active" data-view="dashboard">Dashboard</button>
+                <button class="nav-tab" data-view="semanal">Semanal</button>
+                <button class="nav-tab" data-view="mensal">Mensal</button>
+                <button class="nav-tab" data-view="anual">Anual</button>
+            </nav>
+        </div>
+    </header>
+
+    <main class="main">
+        <section id="view-dashboard" class="view active">
+            <div class="summary-cards">
+                <div class="summary-card sc-hoje"><div class="sc-icon">📅</div><div class="sc-body"><span class="sc-label">Hoje</span><span class="sc-value" id="total-hoje">R$ 0,00</span></div></div>
+                <div class="summary-card sc-semana"><div class="sc-icon">📆</div><div class="sc-body"><span class="sc-label">Semana</span><span class="sc-value" id="total-semana">R$ 0,00</span></div></div>
+                <div class="summary-card sc-mes"><div class="sc-icon">📅</div><div class="sc-body"><span class="sc-label">Mes</span><span class="sc-value" id="total-mes">R$ 0,00</span></div></div>
+                <div class="summary-card sc-ano"><div class="sc-icon">📆</div><div class="sc-body"><span class="sc-label">Ano</span><span class="sc-value" id="total-ano">R$ 0,00</span></div></div>
+            </div>
+            <div class="section-header"><h2>Recentes</h2><button class="btn btn-primary" id="btn-add-gasto">+ Novo</button></div>
+            <div id="gastos-recentes" class="gastos-list"></div>
+        </section>
+
+        <section id="view-semanal" class="view">
+            <div class="view-header"><button class="btn-nav" id="btn-prev-semana">‹</button><h2 id="semana-title">Semana</h2><button class="btn-nav" id="btn-next-semana">›</button></div>
+            <div class="summary-cards" style="grid-template-columns:1fr 1fr">
+                <div class="summary-card sc-semana"><div class="sc-body"><span class="sc-label">Total</span><span class="sc-value" id="total-semana-view">R$ 0,00</span></div></div>
+                <div class="summary-card sc-mes"><div class="sc-body"><span class="sc-label">Media/dia</span><span class="sc-value" id="media-diaria-semana">R$ 0,00</span></div></div>
+            </div>
+            <div id="semana-gastos" class="gastos-list"></div>
+        </section>
+
+        <section id="view-mensal" class="view">
+            <div class="view-header"><button class="btn-nav" id="btn-prev-mes">‹</button><h2 id="mes-title">Mes</h2><button class="btn-nav" id="btn-next-mes">›</button></div>
+            <div class="summary-cards" style="grid-template-columns:1fr 1fr">
+                <div class="summary-card sc-mes"><div class="sc-body"><span class="sc-label">Total</span><span class="sc-value" id="total-mes-view">R$ 0,00</span></div></div>
+                <div class="summary-card sc-semana"><div class="sc-body"><span class="sc-label">Media/semana</span><span class="sc-value" id="media-semanal-mes">R$ 0,00</span></div></div>
+            </div>
+            <div id="mes-gastos" class="gastos-list"></div>
+        </section>
+
+        <section id="view-anual" class="view">
+            <div class="view-header"><button class="btn-nav" id="btn-prev-ano">‹</button><h2 id="ano-title">Ano</h2><button class="btn-nav" id="btn-next-ano">›</button></div>
+            <div class="summary-cards" style="grid-template-columns:1fr 1fr">
+                <div class="summary-card sc-ano"><div class="sc-body"><span class="sc-label">Total</span><span class="sc-value" id="total-ano-view">R$ 0,00</span></div></div>
+                <div class="summary-card sc-mes"><div class="sc-body"><span class="sc-label">Media/mes</span><span class="sc-value" id="media-mensal-ano">R$ 0,00</span></div></div>
+            </div>
+            <div id="ano-gastos" class="gastos-list"></div>
+        </section>
+    </main>
+
+    <div id="modal-gasto" class="modal">
+        <div class="modal-content">
+            <div class="modal-header"><h2 id="modal-title">Novo Gasto</h2><button class="btn-close" id="btn-close-modal">&times;</button></div>
+            <form id="form-gasto">
+                <input type="hidden" id="gasto-id">
+                <div class="form-group"><label for="gasto-descricao">Descricao</label><input type="text" id="gasto-descricao" placeholder="Ex: Supermercado" required></div>
+                <div class="form-row">
+                    <div class="form-group"><label for="gasto-valor">Valor (R$)</label><input type="number" id="gasto-valor" step="0.01" min="0" placeholder="0,00" required></div>
+                    <div class="form-group"><label for="gasto-data">Data</label><input type="date" id="gasto-data" required></div>
+                </div>
+                <div class="form-group">
+                    <label for="gasto-categoria">Categoria</label>
+                    <select id="gasto-categoria">
+                        <option value="alimentacao">🍔 Alimentacao</option>
+                        <option value="transporte">🚗 Transporte</option>
+                        <option value="moradia">🏠 Moradia</option>
+                        <option value="saude">💊 Saude</option>
+                        <option value="lazer">🎮 Lazer</option>
+                        <option value="educacao">📚 Educacao</option>
+                        <option value="outros">📦 Outros</option>
+                    </select>
+                </div>
+                <div class="form-actions">
+                    <button type="button" class="btn btn-secondary" id="btn-cancelar">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Salvar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <button class="fab" id="fab-add">+</button>
+
+    <div class="export-bar">
+        <button class="btn-export" id="btn-export-txt">📄 TXT</button>
+        <button class="btn-export" id="btn-export-excel">📊 Excel</button>
+    </div>
+
+    <script>
+    const CAT = {
+        alimentacao: { icon: '🍔', label: 'Alimentacao' },
+        transporte: { icon: '🚗', label: 'Transporte' },
+        moradia: { icon: '🏠', label: 'Moradia' },
+        saude: { icon: '💊', label: 'Saude' },
+        lazer: { icon: '🎮', label: 'Lazer' },
+        educacao: { icon: '📚', label: 'Educacao' },
+        outros: { icon: '📦', label: 'Outros' }
+    };
+
+    const KEY = 'gastos_v1';
+    let currentView = 'dashboard', semanaOff = 0, mesOff = 0, anoOff = 0;
+
+    function getData() {
+        try { return JSON.parse(localStorage.getItem(KEY)) || []; } catch { return []; }
+    }
+    function saveData(d) { localStorage.setItem(KEY, JSON.stringify(d)); }
+    function dateStr(d) { return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0'); }
+    function fmt(v) { return 'R$ ' + parseFloat(v||0).toFixed(2).replace('.',','); }
+    function shortDate(d) { return String(d.getDate()).padStart(2,'0') + '/' + String(d.getMonth()+1).padStart(2,'0'); }
+    function dayName(d) { return ['Dom','Seg','Ter','Qua','Qui','Sex','Sab'][d.getDay()]; }
+    function esc(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+
+    function getPeriod(s, e) {
+        const data = getData(), ss = dateStr(s), ee = dateStr(e);
+        return data.filter(g => g.data >= ss && g.data <= ee);
+    }
+    function getHoje() { return getData().filter(g => g.data === dateStr(new Date())); }
+    function getSemana(off=0) {
+        const n = new Date(), s = new Date(n);
+        s.setDate(n.getDate() - n.getDay() + off*7); s.setHours(0,0,0,0);
+        const e = new Date(s); e.setDate(s.getDate()+7);
+        return getPeriod(s, e);
+    }
+    function getMes(off=0) {
+        const n = new Date();
+        const s = new Date(n.getFullYear(), n.getMonth()+off, 1);
+        const e = new Date(n.getFullYear(), n.getMonth()+off+1, 0, 23,59,59);
+        return getPeriod(s, e);
+    }
+    function getAno(off=0) {
+        const n = new Date(), y = n.getFullYear()+off;
+        return getPeriod(new Date(y,0,1), new Date(y,11,31,23,59,59));
+    }
+    function total(g) { return g.reduce((s,x) => s + parseFloat(x.valor||0), 0); }
+
+    function updateDash() {
+        document.getElementById('total-hoje').textContent = fmt(total(getHoje()));
+        document.getElementById('total-semana').textContent = fmt(total(getSemana()));
+        document.getElementById('total-mes').textContent = fmt(total(getMes()));
+        document.getElementById('total-ano').textContent = fmt(total(getAno()));
+        renderRecentes();
+    }
+
+    function renderRecentes() {
+        const g = getData().sort((a,b) => new Date(b.data)-new Date(a.data)).slice(0,10);
+        const c = document.getElementById('gastos-recentes');
+        if (!g.length) { c.innerHTML = '<div class="empty-state"><div class="empty-state-icon">💸</div><p class="empty-title">Nenhum gasto ainda</p><p class="empty-desc">Toque em "+ Novo" para comecar.</p></div>'; return; }
+        c.innerHTML = g.map(card).join('');
+        bindActions(c);
+    }
+
+    function renderSemana() {
+        const g = getSemana(semanaOff), t = total(g), m = t/7;
+        const n = new Date(), s = new Date(n); s.setDate(n.getDate()-n.getDay()+semanaOff*7);
+        const e = new Date(s); e.setDate(s.getDate()+6);
+        document.getElementById('semana-title').textContent = shortDate(s)+' - '+shortDate(e);
+        document.getElementById('total-semana-view').textContent = fmt(t);
+        document.getElementById('media-diaria-semana').textContent = fmt(m);
+        renderGrouped('semana-gastos', g);
+    }
+
+    function renderMes() {
+        const g = getMes(mesOff), t = total(g);
+        const n = new Date(), meses = ['Janeiro','Fevereiro','Marco','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+        const tgt = new Date(n.getFullYear(), n.getMonth()+mesOff, 1);
+        document.getElementById('mes-title').textContent = meses[tgt.getMonth()]+' '+tgt.getFullYear();
+        document.getElementById('total-mes-view').textContent = fmt(t);
+        document.getElementById('media-semanal-mes').textContent = fmt(t/4);
+        renderGrouped('mes-gastos', g);
+    }
+
+    function renderAno() {
+        const g = getAno(anoOff), t = total(g), y = new Date().getFullYear()+anoOff;
+        document.getElementById('ano-title').textContent = 'Ano '+y;
+        document.getElementById('total-ano-view').textContent = fmt(t);
+        document.getElementById('media-mensal-ano').textContent = fmt(t/12);
+        renderGrouped('ano-gastos', g);
+    }
+
+    function renderGrouped(id, gastos) {
+        const c = document.getElementById(id);
+        if (!gastos.length) { c.innerHTML = '<div class="empty-state"><div class="empty-state-icon">📭</div><p class="empty-title">Nenhum gasto neste periodo</p></div>'; return; }
+        const gr = {};
+        gastos.sort((a,b)=>new Date(b.data)-new Date(a.data)).forEach(g => { if(!gr[g.data])gr[g.data]=[]; gr[g.data].push(g); });
+        let h = '';
+        for (const [d, items] of Object.entries(gr)) {
+            const dt = new Date(d+'T12:00:00');
+            h += '<div class="day-group"><div class="day-header"><span>'+dayName(dt)+', '+shortDate(dt)+'</span><span class="day-total">'+fmt(total(items))+'</span></div>'+items.map(card).join('')+'</div>';
+        }
+        c.innerHTML = h;
+        bindActions(c);
+    }
+
+    function card(g) {
+        const c = CAT[g.categoria] || CAT.outros;
+        return '<div class="gasto-card" data-id="'+g.id+'"><div class="gasto-icon '+g.categoria+'">'+c.icon+'</div><div class="gasto-info"><div class="gasto-descricao">'+esc(g.descricao)+'</div><div class="gasto-meta">'+c.label+'</div></div><div class="gasto-valor">'+fmt(g.valor)+'</div><div class="gasto-actions"><button class="btn-edit" data-action="edit" data-id="'+g.id+'" title="Editar">✎</button><button class="btn-delete" data-action="delete" data-id="'+g.id+'" title="Excluir">✕</button></div></div>';
+    }
+
+    function bindActions(c) {
+        c.querySelectorAll('[data-action]').forEach(b => {
+            b.addEventListener('click', e => {
+                const a = e.currentTarget.dataset.action, id = e.currentTarget.dataset.id;
+                if (a === 'edit') editGasto(id);
+                else if (a === 'delete') delGasto(id);
+            });
+        });
+    }
+
+    function openModal(g) {
+        const m = document.getElementById('modal-gasto'), t = document.getElementById('modal-title');
+        if (g) { t.textContent='Editar Gasto'; document.getElementById('gasto-id').value=g.id; document.getElementById('gasto-descricao').value=g.descricao; document.getElementById('gasto-valor').value=g.valor; document.getElementById('gasto-data').value=g.data; document.getElementById('gasto-categoria').value=g.categoria; }
+        else { t.textContent='Novo Gasto'; document.getElementById('form-gasto').reset(); document.getElementById('gasto-id').value=''; document.getElementById('gasto-data').valueAsDate=new Date(); }
+        m.classList.add('active');
+        setTimeout(()=>document.getElementById('gasto-descricao').focus(), 100);
+    }
+
+    function closeModal() { document.getElementById('modal-gasto').classList.remove('active'); }
+
+    function saveGasto() {
+        const id = document.getElementById('gasto-id').value;
+        const g = {
+            descricao: document.getElementById('gasto-descricao').value.trim(),
+            valor: parseFloat(document.getElementById('gasto-valor').value),
+            data: document.getElementById('gasto-data').value,
+            categoria: document.getElementById('gasto-categoria').value
+        };
+        const data = getData();
+        if (id) { const i = data.findIndex(x=>x.id===id); if(i!==-1) data[i] = {...data[i], ...g}; }
+        else { g.id = Date.now().toString(36) + Math.random().toString(36).slice(2,6); data.push(g); }
+        saveData(data);
+        closeModal();
+        refresh();
+    }
+
+    function editGasto(id) { const g = getData().find(x=>x.id===id); if(g) openModal(g); }
+    function delGasto(id) { if(confirm('Excluir este gasto?')) { saveData(getData().filter(x=>x.id!==id)); refresh(); } }
+    function refresh() {
+        if(currentView==='dashboard') updateDash();
+        else if(currentView==='semanal') renderSemana();
+        else if(currentView==='mensal') renderMes();
+        else renderAno();
+    }
+
+    function switchView(v) {
+        currentView = v;
+        document.querySelectorAll('.nav-tab').forEach(t=>t.classList.remove('active'));
+        document.querySelector('[data-view="'+v+'"]').classList.add('active');
+        document.querySelectorAll('.view').forEach(x=>x.classList.remove('active'));
+        document.getElementById('view-'+v).classList.add('active');
+        refresh();
+    }
+
+    function expTXT() {
+        const gastos = currentView==='semanal'?getSemana(semanaOff):currentView==='mensal'?getMes(mesOff):currentView==='anual'?getAno(anoOff):getData();
+        gastos.sort((a,b)=>new Date(a.data)-new Date(b.data));
+        const t = total(gastos), now = new Date(), w=70, rep=(c,n)=>c.repeat(n), p=(s,n)=>String(s).padEnd(n), ps=(s,n)=>String(s).padStart(n);
+        let c = '\n  ╔'+rep('═',w)+'╗\n  ║'+rep(' ',w)+'║\n';
+        c += '  ║'+ps('CONTROLE DE GASTOS PESSOAIS',Math.floor(w/2)+14)+rep(' ',w-Math.floor(w/2)-14)+'║\n';
+        c += '  ║'+rep(' ',w)+'║\n';
+        c += '  ║'+p('  Gerado: '+now.toLocaleDateString('pt-BR')+' '+now.toLocaleTimeString('pt-BR'),w)+'║\n';
+        c += '  ║'+rep(' ',w)+'║\n  ╚'+rep('═',w)+'╝\n\n';
+        if (!gastos.length) { c += '  Nenhum gasto registrado.\n'; }
+        else {
+            const gr={}; gastos.forEach(g=>{if(!gr[g.data])gr[g.data]=[];gr[g.data].push(g);});
+            const tg=gastos.length, td=Object.keys(gr).length;
+            const c1=18,c2=18,c3=16,c4=16;
+            c += '  ┌'+rep('─',c1)+'┬'+rep('─',c2)+'┬'+rep('─',c3)+'┬'+rep('─',c4)+'┐\n';
+            c += '  │'+p(' REGISTROS',c1)+'│'+p(' DIAS C/ GASTOS',c2)+'│'+p(' MEDIA/ITEM',c3)+'│'+p(' TOTAL',c4)+'│\n';
+            c += '  ├'+rep('─',c1)+'┼'+rep('─',c2)+'┼'+rep('─',c3)+'┼'+rep('─',c4)+'┤\n';
+            c += '  │'+p(' '+tg+' item(s)',c1)+'│'+p(' '+td+' dia(s)',c2)+'│'+p(' '+fmt(t/tg),c3)+'│'+p(' '+fmt(t),c4)+'│\n';
+            c += '  └'+rep('─',c1)+'┴'+rep('─',c2)+'┴'+rep('─',c3)+'┴'+rep('─',c4)+'┘\n\n';
+            let idx=1;
+            for (const [d,items] of Object.entries(gr)) {
+                const dt=new Date(d+'T12:00:00'), dt2=total(items);
+                c += '  ┌'+rep('─',w-2)+'┐\n';
+                c += '  │  '+dayName(dt)+', '+shortDate(dt)+rep(' ',w-4-dayName(dt).length-6)+'  │\n';
+                c += '  ├'+rep('─',4)+'┬'+rep('─',26)+'┬'+rep('─',18)+'┬'+rep('─',18)+'┤\n';
+                c += '  │ #  │ DESCRICAO               │ CATEGORIA         │ VALOR (R$)      │\n';
+                c += '  ├'+rep('─',4)+'┼'+rep('─',26)+'┼'+rep('─',18)+'┼'+rep('─',18)+'┤\n';
+                items.forEach(g => {
+                    const cat=(CAT[g.categoria]||CAT.outros).label;
+                    let desc=g.descricao.length>26?g.descricao.substring(0,23)+'...':g.descricao;
+                    c += '  │'+ps(String(idx++),4)+'│ '+p(desc,25)+'│ '+p(cat,17)+'│'+ps(fmt(g.valor),16)+' │\n';
+                });
+                c += '  ├'+rep('─',4)+'┴'+rep('─',26)+'┴'+rep('─',18)+'┼'+rep('─',18)+'┤\n';
+                c += '  │ SUBTOTAL:'+rep(' ',39)+ps(fmt(dt2),16)+' │\n';
+                c += '  └'+rep('─',w-2)+'┘\n\n';
+            }
+            const vals=gastos.map(g=>parseFloat(g.valor));
+            c += '  ╔'+rep('═',w)+'╗\n  ║'+ps('  RESUMO GERAL  ',w)+'║\n  ║'+rep(' ',w)+'║\n';
+            c += '  ║'+p('    Total .............. '+fmt(t),w)+'║\n';
+            c += '  ║'+p('    Registros .......... '+tg,w)+'║\n';
+            c += '  ║'+p('    Maior gasto ........ '+fmt(Math.max(...vals)),w)+'║\n';
+            c += '  ║'+p('    Menor gasto ........ '+fmt(Math.min(...vals)),w)+'║\n';
+            c += '  ║'+rep(' ',w)+'║\n  ╚'+rep('═',w)+'╝\n';
+        }
+        dl(c,'gastos.txt','text/plain');
+    }
+
+    function expCSV() {
+        const gastos = currentView==='semanal'?getSemana(semanaOff):currentView==='mensal'?getMes(mesOff):currentView==='anual'?getAno(anoOff):getData();
+        gastos.sort((a,b)=>new Date(a.data)-new Date(b.data));
+        let csv = '\uFEFFData;Descricao;Categoria;Valor\n';
+        gastos.forEach(g => { csv += g.data+';'+g.descricao+';'+(CAT[g.categoria]||CAT.outros).label+';'+parseFloat(g.valor).toFixed(2).replace('.',',')+'\n'; });
+        csv += '\n;;TOTAL;'+total(gastos).toFixed(2).replace('.',',')+'\n';
+        csv += '\nGerado em;'+new Date().toLocaleString('pt-BR')+'\n';
+        dl(csv,'gastos.csv','text/csv;charset=utf-8');
+    }
+
+    function dl(c,f,t) {
+        const b = new Blob([c],{type:t}), u = URL.createObjectURL(b);
+        const a = document.createElement('a'); a.href=u; a.download=f;
+        document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(u);
+    }
+
+    // Init
+    document.querySelectorAll('.nav-tab').forEach(t=>t.addEventListener('click',e=>switchView(e.target.dataset.view)));
+    document.getElementById('btn-add-gasto').addEventListener('click',()=>openModal());
+    document.getElementById('fab-add').addEventListener('click',()=>openModal());
+    document.getElementById('btn-close-modal').addEventListener('click',closeModal);
+    document.getElementById('btn-cancelar').addEventListener('click',closeModal);
+    document.getElementById('modal-gasto').addEventListener('click',e=>{if(e.target.id==='modal-gasto')closeModal();});
+    document.getElementById('form-gasto').addEventListener('submit',e=>{e.preventDefault();saveGasto();});
+    document.getElementById('btn-prev-semana').addEventListener('click',()=>{semanaOff--;renderSemana();});
+    document.getElementById('btn-next-semana').addEventListener('click',()=>{semanaOff++;renderSemana();});
+    document.getElementById('btn-prev-mes').addEventListener('click',()=>{mesOff--;renderMes();});
+    document.getElementById('btn-next-mes').addEventListener('click',()=>{mesOff++;renderMes();});
+    document.getElementById('btn-prev-ano').addEventListener('click',()=>{anoOff--;renderAno();});
+    document.getElementById('btn-next-ano').addEventListener('click',()=>{anoOff++;renderAno();});
+    document.getElementById('btn-export-txt').addEventListener('click',expTXT);
+    document.getElementById('btn-export-excel').addEventListener('click',expCSV);
+    document.addEventListener('keydown',e=>{if(e.key==='Escape')closeModal();});
+
+    document.getElementById('gasto-data').valueAsDate = new Date();
+    updateDash();
+    </script>
+</body>
+</html>
