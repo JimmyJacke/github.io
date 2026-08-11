@@ -155,8 +155,6 @@
     </style>
 </head>
 <body>
-</head>
-<body>
     <header>
         <div class="header-top">
             <div class="logo">
@@ -198,6 +196,16 @@
                 <div id="fileStatus" class="file-status"></div>
                 <div id="lastContestInfo" class="last-contest-info" style="display:none">
                     <span>Último concurso: <strong id="lastContestNum">-</strong></span>
+                </div>
+                <div id="updateSection" class="update-section" style="display:none">
+                    <button class="btn btn-secondary" id="btnCheckUpdate" onclick="checkUpdates()">
+                        <i class="fas fa-sync-alt"></i> Verificar Atualizações
+                    </button>
+                    <div id="updateLoading" class="loading" style="display:none">
+                        <i class="fas fa-spinner fa-spin"></i> Verificando...
+                    </div>
+                    <div id="updateStatus"></div>
+                    <div id="updateResults"></div>
                 </div>
             </div>
 
@@ -373,6 +381,7 @@
         recentFrequencyData: {},
         allData: [],
         lastContest: null,
+        pendingUpdates: [],
     };
 
     // ==================== LOGGING ====================
@@ -504,6 +513,7 @@
                 processData(jsonData);
                 document.getElementById('fileStatus').textContent = `Arquivo: ${file.name} (${jsonData.length} sorteios)`;
                 document.getElementById('lastContestInfo').style.display = 'block';
+                document.getElementById('updateSection').style.display = 'block';
                 const lastConcurso = jsonData[jsonData.length - 1]['Concurso'] || jsonData.length;
                 document.getElementById('lastContestNum').textContent = lastConcurso;
                 state.lastContest = lastConcurso;
@@ -532,7 +542,7 @@
                 const val = row[`Bola${b}`] || row[`bola${b}`] || row[`BOLA${b}`];
                 if (val) {
                     const num = parseInt(val);
-                    if (num >= NUMBER_RANGE.min && num >= NUMBER_RANGE.max) {
+                    if (num >= NUMBER_RANGE.min && num <= NUMBER_RANGE.max) {
                         numbers.push(num);
                         state.frequencyData[num]++;
                         if (idx >= jsonData.length - recentCount) {
@@ -1095,6 +1105,141 @@
         let count = 0;
         for (let i = 1; i < nums.length; i++) { if (nums[i] - nums[i - 1] === 1) count++; }
         return count;
+    }
+
+    // ==================== UPDATE CHECK ====================
+    const API_BASE_URL = 'https://loteriascaixa-api.herokuapp.com/api/lotofacil';
+
+    async function checkUpdates() {
+        if (!state.lastContest) {
+            showToast('Carregue um arquivo Excel primeiro', 'error');
+            return;
+        }
+        document.getElementById('updateLoading').style.display = 'block';
+        document.getElementById('btnCheckUpdate').disabled = true;
+        document.getElementById('updateStatus').innerHTML = '';
+        document.getElementById('updateResults').innerHTML = '';
+        log('Verificando novos concursos...', 'info');
+        const novos = [];
+        let foundNew = false;
+        for (let i = 1; i <= 10; i++) {
+            const concursoNum = state.lastContest + i;
+            try {
+                const response = await fetch(`${API_BASE_URL}/${concursoNum}`);
+                if (response.ok) {
+                    const data = await response.json();
+                    const dezenas = data.dezenas || data.numeros || [];
+                    if (dezenas.length === 15) {
+                        novos.push({
+                            concurso: concursoNum,
+                            numeros: dezenas.map(d => parseInt(d)).sort((a, b) => a - b),
+                            data: data.data || ''
+                        });
+                        foundNew = true;
+                        log(`Concurso ${concursoNum} encontrado: ${dezenas.join(', ')}`, 'success');
+                    }
+                } else {
+                    break;
+                }
+            } catch (e) {
+                log(`Erro ao buscar concurso ${concursoNum}: ${e.message}`, 'error');
+                break;
+            }
+        }
+        document.getElementById('updateLoading').style.display = 'none';
+        document.getElementById('btnCheckUpdate').disabled = false;
+        if (novos.length > 0) {
+            state.pendingUpdates = novos;
+            document.getElementById('updateStatus').innerHTML = `<p style="color: var(--secondary); margin-top: 8px;">${novos.length} novos concursos encontrados!</p>`;
+            let html = '';
+            novos.forEach(c => {
+                html += `
+                    <div class="concurso-card">
+                        <span><strong>Concurso ${c.concurso}:</strong> ${c.numeros.join(', ')}</span>
+                    </div>
+                `;
+            });
+            html += `
+                <button class="btn btn-primary" onclick="applyUpdates()" style="margin-top: 12px;">
+                    <i class="fas fa-check"></i> Aplicar e Retreinar
+                </button>
+                <button class="btn btn-secondary" onclick="downloadUpdatedExcel()" style="margin-top: 4px;">
+                    <i class="fas fa-download"></i> Baixar Planilha Atualizada
+                </button>
+            `;
+            document.getElementById('updateResults').innerHTML = html;
+            log(`${novos.length} novos concursos encontrados`, 'success');
+            showToast(`${novos.length} novos concursos encontrados!`);
+        } else {
+            document.getElementById('updateStatus').innerHTML = '<p style="color: var(--text-muted); margin-top: 8px;">Nenhum novo concurso encontrado. Planilha já está atualizada.</p>';
+            log('Nenhum novo concurso encontrado', 'info');
+        }
+    }
+
+    function applyUpdates() {
+        if (!state.pendingUpdates || state.pendingUpdates.length === 0) {
+            showToast('Nenhum concurso para aplicar', 'error');
+            return;
+        }
+        log(`Aplicando ${state.pendingUpdates.length} novos concursos...`, 'info');
+        state.pendingUpdates.forEach(update => {
+            state.allData.push(update.numeros);
+            update.numeros.forEach(n => {
+                state.frequencyData[n] = (state.frequencyData[n] || 0) + 1;
+                state.recentFrequencyData[n] = (state.recentFrequencyData[n] || 0) + 1;
+            });
+        });
+        const sorted = Object.entries(state.frequencyData).sort((a, b) => b[1] - a[1]);
+        state.hotNumbers = sorted.slice(0, 10).map(([n]) => parseInt(n));
+        state.coldNumbers = sorted.slice(-10).map(([n]) => parseInt(n));
+        state.lastContest = state.pendingUpdates[state.pendingUpdates.length - 1].concurso;
+        document.getElementById('lastContestNum').textContent = state.lastContest;
+        state.pendingUpdates = [];
+        document.getElementById('updateResults').innerHTML = '';
+        document.getElementById('updateStatus').innerHTML = `<p style="color: var(--secondary); margin-top: 8px;">Concursos aplicados com sucesso! Total: ${state.allData.length} sorteios</p>`;
+        log(`Concursos aplicados. Total: ${state.allData.length} sorteios`, 'success');
+        showToast('Concursos aplicados! Dados atualizados.');
+    }
+
+    async function downloadUpdatedExcel() {
+        if (!state.pendingUpdates || state.pendingUpdates.length === 0) {
+            showToast('Nenhum concurso para baixar', 'error');
+            return;
+        }
+        log('Gerando planilha atualizada...', 'info');
+        try {
+            const wb = XLSX.utils.book_new();
+            const rows = [];
+            state.allData.forEach((row, idx) => {
+                const rowData = { Concurso: idx + 1 };
+                row.forEach((num, colIdx) => {
+                    rowData[`Bola${colIdx + 1}`] = num;
+                });
+                rows.push(rowData);
+            });
+            state.pendingUpdates.forEach(update => {
+                const rowData = { Concurso: update.concurso };
+                update.numeros.forEach((num, colIdx) => {
+                    rowData[`Bola${colIdx + 1}`] = num;
+                });
+                rows.push(rowData);
+            });
+            const ws = XLSX.utils.json_to_sheet(rows);
+            XLSX.utils.book_append_sheet(wb, ws, 'Lotofácil');
+            const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+            const blob = new Blob([wbout], { type: 'application/octet-stream' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `Lotofacil_${state.lastContest + state.pendingUpdates.length}.xlsx`;
+            a.click();
+            URL.revokeObjectURL(url);
+            log('Planilha baixada com sucesso', 'success');
+            showToast('Planilha baixada!');
+        } catch (e) {
+            log(`Erro ao gerar planilha: ${e.message}`, 'error');
+            showToast('Erro ao gerar planilha', 'error');
+        }
     }
 
     // ==================== MAIN ANALYSIS ====================
