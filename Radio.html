@@ -1,0 +1,1813 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta
+    name="description"
+    content="Web FM Radio — player de rádio online com sintonia FM, presets, volume e busca de estações ao vivo."
+  />
+  <meta name="theme-color" content="#0d1a14" />
+  <link
+    rel="icon"
+    href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='13' fill='%2328d97b'/%3E%3Ccircle cx='16' cy='16' r='5' fill='%230d1a14'/%3E%3C/svg%3E"
+  />
+  <title>Web FM Radio</title>
+
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    :root {
+      --bg1: #07110d;
+      --bg2: #0d1b16;
+      --panel: #0d1a14;
+      --panel2: #08110d;
+      --line: rgba(126, 255, 178, 0.18);
+      --text: #eafff2;
+      --muted: #9ec7ae;
+      --green: #28d97b;
+      --green2: #87ffbb;
+      --danger: #ff6f6f;
+      --warning: #ffd36f;
+
+      --glow1: rgba(40, 217, 123, 0.16);
+      --glow2: rgba(77, 168, 255, 0.12);
+      --freq-glow: rgba(135, 255, 187, 0.35);
+      --led-glow: rgba(135, 255, 187, 0.9);
+      --ring: rgba(40, 217, 123, 0.25);
+      --track-on: rgba(135, 255, 187, 0.45);
+      --track-off: rgba(255, 255, 255, 0.12);
+      --preset-on: rgba(40, 217, 123, 0.16);
+      --preset-edge: rgba(135, 255, 187, 0.55);
+      --primary-a: rgba(40, 217, 123, 0.32);
+      --primary-b: rgba(40, 217, 123, 0.16);
+      --primary-edge: rgba(135, 255, 187, 0.25);
+    }
+
+    :root[data-theme="ocean"] {
+      --glow1: rgba(56, 189, 248, 0.18);
+      --glow2: rgba(129, 140, 248, 0.12);
+      --line: rgba(125, 211, 252, 0.2);
+      --text: #ecfbff;
+      --muted: #a7c9d8;
+      --green: #3bb8f5;
+      --green2: #a5f3fc;
+      --freq-glow: rgba(165, 243, 252, 0.4);
+      --led-glow: rgba(125, 211, 252, 0.95);
+      --ring: rgba(56, 189, 248, 0.28);
+      --track-on: rgba(56, 189, 248, 0.5);
+      --preset-on: rgba(56, 189, 248, 0.16);
+      --preset-edge: rgba(165, 243, 252, 0.6);
+      --primary-a: rgba(56, 189, 248, 0.32);
+      --primary-b: rgba(56, 189, 248, 0.16);
+      --primary-edge: rgba(165, 243, 252, 0.28);
+    }
+
+    :root[data-theme="ember"] {
+      --glow1: rgba(251, 146, 60, 0.18);
+      --glow2: rgba(244, 114, 182, 0.12);
+      --line: rgba(253, 186, 116, 0.2);
+      --text: #fff6ee;
+      --muted: #d3b8a2;
+      --green: #fb923c;
+      --green2: #ffd8a8;
+      --freq-glow: rgba(255, 216, 168, 0.4);
+      --led-glow: rgba(253, 186, 116, 0.95);
+      --ring: rgba(251, 146, 60, 0.28);
+      --track-on: rgba(251, 146, 60, 0.5);
+      --preset-on: rgba(251, 146, 60, 0.16);
+      --preset-edge: rgba(255, 216, 168, 0.6);
+      --primary-a: rgba(251, 146, 60, 0.32);
+      --primary-b: rgba(251, 146, 60, 0.16);
+      --primary-edge: rgba(255, 216, 168, 0.28);
+    }
+
+    html,
+    body {
+      margin: 0;
+      min-height: 100%;
+    }
+
+    body {
+      font-family: "Segoe UI", system-ui, -apple-system, Roboto, Arial, sans-serif;
+      color: var(--text);
+      background:
+        radial-gradient(1200px 600px at 10% -10%, var(--glow1), transparent 55%),
+        radial-gradient(900px 500px at 110% 20%, var(--glow2), transparent 50%),
+        linear-gradient(135deg, var(--bg1), var(--bg2));
+      display: grid;
+      place-items: center;
+      min-height: 100vh;
+      min-height: 100dvh;
+      padding: 24px;
+      padding-left: max(24px, env(safe-area-inset-left));
+      padding-right: max(24px, env(safe-area-inset-right));
+      padding-top: max(24px, env(safe-area-inset-top));
+      padding-bottom: max(24px, env(safe-area-inset-bottom));
+    }
+
+    .radio {
+      width: min(980px, 100%);
+      background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.02)),
+        var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 28px;
+      box-shadow:
+        0 20px 80px rgba(0, 0, 0, 0.45),
+        inset 0 1px 0 rgba(255, 255, 255, 0.08);
+      padding: 22px;
+      backdrop-filter: blur(10px);
+    }
+
+    .top {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+
+    .brand {
+      font-weight: 800;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+    }
+
+    .brand small {
+      display: block;
+      color: var(--muted);
+      font-weight: 600;
+      letter-spacing: 0.28em;
+      margin-top: 4px;
+    }
+
+    .led-wrap {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: var(--muted);
+      font-size: 0.9rem;
+    }
+
+    .led {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      background: #33413a;
+      box-shadow: inset 0 0 4px rgba(0, 0, 0, 0.7);
+    }
+
+    .playing .led {
+      background: var(--green2);
+      box-shadow: 0 0 14px var(--led-glow);
+    }
+
+    .themes {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .theme-dot {
+      width: 18px;
+      height: 18px;
+      padding: 0;
+      border: 0;
+      border-radius: 50%;
+      background: var(--dot, #28d97b);
+      box-shadow: inset 0 0 4px rgba(0, 0, 0, 0.5);
+    }
+
+    .theme-dot.theme-green {
+      --dot: #28d97b;
+    }
+
+    .theme-dot.theme-ocean {
+      --dot: #38bdf8;
+    }
+
+    .theme-dot.theme-ember {
+      --dot: #fb923c;
+    }
+
+    .theme-dot[aria-pressed="true"] {
+      box-shadow:
+        0 0 0 2px var(--text),
+        inset 0 0 4px rgba(0, 0, 0, 0.5);
+    }
+
+    .display {
+      background: linear-gradient(180deg, #04130b, #021009);
+      border: 1px solid rgba(118, 255, 178, 0.18);
+      border-radius: 20px;
+      padding: 18px;
+      box-shadow:
+        inset 0 0 35px rgba(0, 0, 0, 0.45),
+        inset 0 0 80px var(--glow1);
+    }
+
+    .display-top {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 18px;
+      align-items: center;
+    }
+
+    .freq {
+      font-family: Consolas, Menlo, monospace;
+      font-size: clamp(2.6rem, 7vw, 5rem);
+      line-height: 1;
+      color: var(--green2);
+      text-shadow: 0 0 18px var(--freq-glow);
+    }
+
+    .freq small {
+      font-size: 0.32em;
+      color: var(--muted);
+      margin-left: 8px;
+      text-shadow: none;
+    }
+
+    .meta .station {
+      font-size: 1.25rem;
+      font-weight: 800;
+    }
+
+    .meta .genre {
+      color: var(--muted);
+      margin-top: 4px;
+    }
+
+    .status {
+      margin-top: 8px;
+      font-size: 0.95rem;
+      color: var(--warning);
+      min-height: 1.2em;
+    }
+
+    .status[data-state="ok"] {
+      color: var(--green2);
+    }
+
+    .status[data-state="error"] {
+      color: var(--danger);
+    }
+
+    .status[data-state="info"] {
+      color: var(--muted);
+    }
+
+    .status[data-state="loading"] {
+      color: var(--warning);
+    }
+
+    .status[data-state="warn"] {
+      color: var(--warning);
+    }
+
+    .eq {
+      display: flex;
+      gap: 4px;
+      align-items: flex-end;
+      height: 48px;
+      margin-top: 16px;
+      padding: 10px;
+      border-radius: 14px;
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      overflow: hidden;
+    }
+
+    .eq i {
+      width: 5px;
+      height: 8px;
+      border-radius: 999px;
+      background: linear-gradient(180deg, var(--green2), var(--green));
+      opacity: 0.35;
+      animation: eq 1.15s ease-in-out infinite;
+      animation-play-state: paused;
+    }
+
+    .playing .eq i {
+      animation-play-state: running;
+      opacity: 1;
+    }
+
+    @keyframes eq {
+      0%,
+      100% {
+        height: 8px;
+      }
+
+      50% {
+        height: 42px;
+      }
+    }
+
+    .dial {
+      margin-top: 18px;
+    }
+
+    .scale {
+      display: flex;
+      justify-content: space-between;
+      color: var(--muted);
+      font-size: 0.8rem;
+      margin-bottom: 6px;
+    }
+
+    input[type="range"] {
+      width: 100%;
+      -webkit-appearance: none;
+      appearance: none;
+      background: transparent;
+      cursor: pointer;
+      height: 28px;
+    }
+
+    input[type="range"]::-webkit-slider-runnable-track {
+      height: 6px;
+      border-radius: 999px;
+      background: linear-gradient(
+        90deg,
+        var(--track-on),
+        var(--track-off)
+      );
+      border: 1px solid rgba(255, 255, 255, 0.06);
+    }
+
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 20px;
+      height: 20px;
+      margin-top: -7px;
+      border-radius: 50%;
+      background: radial-gradient(
+        circle at 35% 35%,
+        var(--green2),
+        var(--green) 65%,
+        #0b5c34
+      );
+      border: 2px solid rgba(255, 255, 255, 0.28);
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.55);
+    }
+
+    input[type="range"]::-moz-range-track {
+      height: 6px;
+      border-radius: 999px;
+      background: linear-gradient(
+        90deg,
+        var(--track-on),
+        var(--track-off)
+      );
+      border: 1px solid rgba(255, 255, 255, 0.06);
+    }
+
+    input[type="range"]::-moz-range-thumb {
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: radial-gradient(
+        circle at 35% 35%,
+        var(--green2),
+        var(--green) 65%,
+        #0b5c34
+      );
+      border: 2px solid rgba(255, 255, 255, 0.28);
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.55);
+    }
+
+    input[type="range"]:focus-visible::-webkit-slider-thumb,
+    input[type="range"]:focus-visible::-moz-range-thumb {
+      box-shadow: 0 0 0 4px var(--ring);
+    }
+
+    .controls {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-top: 18px;
+      align-items: center;
+    }
+
+    button {
+      border: 0;
+      color: var(--text);
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.10);
+      padding: 11px 14px;
+      border-radius: 14px;
+      cursor: pointer;
+      font-weight: 700;
+      transition: 0.18s;
+    }
+
+    button:hover {
+      transform: translateY(-1px);
+      background: rgba(255, 255, 255, 0.13);
+    }
+
+    button.primary {
+      background: linear-gradient(135deg, var(--primary-a), var(--primary-b));
+      border-color: var(--primary-edge);
+    }
+
+    .volume-wrap {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-left: auto;
+      color: var(--muted);
+    }
+
+    input[type="range"].volume {
+      width: 150px;
+    }
+
+    .presets {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      gap: 10px;
+      margin-top: 18px;
+    }
+
+    .preset {
+      display: grid;
+      grid-template-columns: 1fr;
+      grid-template-areas:
+        "main"
+        "url"
+        "actions";
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 14px;
+      overflow: hidden;
+      min-width: 0;
+    }
+
+    .preset.active {
+      outline: 2px solid var(--preset-edge);
+      background: var(--preset-on);
+    }
+
+    .preset-main {
+      grid-area: main;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: flex-start;
+      gap: 4px;
+      min-width: 0;
+      min-height: 64px;
+      padding: 12px;
+      text-align: left;
+      background: transparent;
+      border: 0;
+      border-radius: 0;
+      transform: none;
+    }
+
+    .preset-main:hover {
+      background: rgba(255, 255, 255, 0.06);
+    }
+
+    .preset-main small {
+      color: var(--green2);
+      font-weight: 800;
+    }
+
+    .preset-main span {
+      font-size: 0.92rem;
+      line-height: 1.2;
+    }
+
+    .preset-actions {
+      grid-area: actions;
+      display: flex;
+      flex-direction: row;
+      border-top: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    .preset-actions button {
+      flex: 1;
+      min-width: 0;
+      padding: 8px;
+      border: 0;
+      border-radius: 0;
+      background: transparent;
+      color: var(--muted);
+      font-size: 0.85rem;
+      transform: none;
+    }
+
+    .preset-actions button + button {
+      border-top: 0;
+      border-left: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    .preset-actions button:hover {
+      background: rgba(255, 255, 255, 0.08);
+      color: var(--text);
+    }
+
+    .preset-actions button[aria-expanded="true"] {
+      color: var(--green2);
+    }
+
+    .preset-actions .preset-edit:hover {
+      background: var(--preset-on);
+      color: var(--green2);
+    }
+
+    .preset-actions .preset-del:hover {
+      background: rgba(255, 111, 111, 0.12);
+      color: var(--danger);
+    }
+
+    .preset-url {
+      grid-area: url;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 12px;
+      background: rgba(0, 0, 0, 0.28);
+      border-top: 1px dashed rgba(255, 255, 255, 0.12);
+    }
+
+    .preset-url[hidden] {
+      display: none;
+    }
+
+    .preset-url code {
+      flex: 1;
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      font-size: 0.75rem;
+      color: var(--muted);
+      text-align: left;
+    }
+
+    .preset-url button {
+      flex: none;
+      padding: 6px 10px;
+      border-radius: 8px;
+      font-size: 0.8rem;
+    }
+
+    input[type="text"].preset-input {
+      width: 100%;
+      min-width: 0;
+      padding: 5px 8px;
+      border: 1px solid var(--preset-edge);
+      background: rgba(0, 0, 0, 0.35);
+      color: var(--text);
+      border-radius: 8px;
+      font-size: 0.92rem;
+    }
+
+    .panel {
+      margin-top: 18px;
+      background: rgba(255, 255, 255, 0.035);
+      border: 1px solid rgba(255, 255, 255, 0.07);
+      border-radius: 18px;
+      padding: 14px;
+    }
+
+    .panel h2 {
+      margin: 0 0 10px;
+      font-size: 1rem;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+
+    input[type="text"],
+    input[type="url"] {
+      width: 100%;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      background: rgba(0, 0, 0, 0.25);
+      color: var(--text);
+      border-radius: 12px;
+      padding: 11px 12px;
+      outline: none;
+    }
+
+    input:focus {
+      border-color: var(--preset-edge);
+      box-shadow: 0 0 0 3px var(--preset-on);
+    }
+
+    .grid-2,
+    .grid-3 {
+      display: grid;
+      gap: 10px;
+    }
+
+    .grid-2 {
+      grid-template-columns: 1fr auto;
+    }
+
+    .grid-3 {
+      grid-template-columns: 1fr 1.5fr auto;
+    }
+
+    .results {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 10px;
+      margin-top: 12px;
+    }
+
+    .result {
+      text-align: left;
+    }
+
+    .result small {
+      color: var(--muted);
+      display: block;
+      margin-bottom: 4px;
+    }
+
+    .footer {
+      margin-top: 16px;
+      color: var(--muted);
+      font-size: 0.9rem;
+      line-height: 1.45;
+    }
+
+    code {
+      color: var(--green2);
+    }
+
+    .panel .status {
+      margin-top: 10px;
+    }
+
+    @media (max-width: 900px) {
+      .radio {
+        padding: 18px;
+      }
+
+      .freq {
+        font-size: clamp(2.4rem, 8vw, 4.2rem);
+      }
+    }
+
+    @media (max-width: 640px) {
+      body {
+        padding: 12px;
+        padding-left: max(12px, env(safe-area-inset-left));
+        padding-right: max(12px, env(safe-area-inset-right));
+        padding-top: max(12px, env(safe-area-inset-top));
+        padding-bottom: max(12px, env(safe-area-inset-bottom));
+      }
+
+      .radio {
+        padding: 14px;
+        border-radius: 20px;
+        box-shadow: 0 12px 40px rgba(0, 0, 0, 0.45);
+      }
+
+      .top {
+        flex-wrap: wrap;
+      }
+
+      .display {
+        padding: 14px;
+        border-radius: 16px;
+      }
+
+      .display-top {
+        grid-template-columns: 1fr;
+        gap: 12px;
+      }
+
+      .freq {
+        font-size: clamp(2.4rem, 15vw, 3.6rem);
+      }
+
+      .controls {
+        gap: 8px;
+      }
+
+      .controls button {
+        flex: 1 1 calc(50% - 4px);
+        min-height: 48px;
+        padding: 13px 10px;
+      }
+
+      .volume-wrap {
+        width: 100%;
+        margin-left: 0;
+      }
+
+      .volume {
+        flex: 1;
+        width: 100%;
+      }
+
+      .presets {
+        grid-template-columns: 1fr 1fr;
+        gap: 8px;
+      }
+
+      .preset {
+        min-height: 56px;
+      }
+
+      .grid-2,
+      .grid-3 {
+        grid-template-columns: 1fr;
+      }
+
+      .scale span:nth-child(even) {
+        display: none;
+      }
+
+      .eq {
+        height: 40px;
+      }
+
+      .panel {
+        padding: 12px;
+      }
+
+      .footer {
+        font-size: 0.82rem;
+      }
+    }
+
+    @media (max-width: 380px) {
+      .brand small {
+        letter-spacing: 0.18em;
+      }
+
+      .presets {
+        grid-template-columns: 1fr;
+      }
+
+      .scale span:nth-child(3n) {
+        display: none;
+      }
+    }
+
+    @media (pointer: coarse) {
+      input[type="range"] {
+        height: 40px;
+      }
+
+      input[type="range"]::-webkit-slider-thumb {
+        width: 24px;
+        height: 24px;
+        margin-top: -9px;
+      }
+
+      button {
+        min-height: 44px;
+      }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .eq i {
+        animation: none;
+        opacity: 0.5;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <main class="radio" id="radio">
+    <div class="top">
+      <div class="brand">
+        Web FM
+        <small>rádio online</small>
+      </div>
+
+      <div class="themes" role="group" aria-label="Tema de cores">
+        <button
+          class="theme-dot theme-green"
+          type="button"
+          data-theme="default"
+          aria-pressed="true"
+          aria-label="Tema clássico (verde)"
+          title="Verde"
+        ></button>
+        <button
+          class="theme-dot theme-ocean"
+          type="button"
+          data-theme="ocean"
+          aria-pressed="false"
+          aria-label="Tema oceano (azul)"
+          title="Azul"
+        ></button>
+        <button
+          class="theme-dot theme-ember"
+          type="button"
+          data-theme="ember"
+          aria-pressed="false"
+          aria-label="Tema fogo (laranja)"
+          title="Laranja"
+        ></button>
+      </div>
+
+      <div class="led-wrap">
+        <span class="led"></span>
+        <span>POWER</span>
+      </div>
+    </div>
+
+    <section class="display">
+      <div class="display-top">
+        <div>
+          <div class="freq">
+            <span id="freq">100.5</span><small>MHz</small>
+          </div>
+          <div
+            class="status"
+            id="status"
+            data-state="info"
+            role="status"
+            aria-live="polite"
+          >
+            Pronto. Escolha uma estação.
+          </div>
+        </div>
+
+        <div class="meta">
+          <div class="station" id="station">Selecione uma estação</div>
+          <div class="genre" id="genre">Web rádio / streaming</div>
+        </div>
+      </div>
+
+      <div class="eq" id="eq" aria-hidden="true"></div>
+    </section>
+
+    <section class="dial">
+      <div class="scale">
+        <span>87.5</span>
+        <span>90</span>
+        <span>93</span>
+        <span>96</span>
+        <span>99</span>
+        <span>102</span>
+        <span>105</span>
+        <span>108</span>
+      </div>
+
+      <input
+        id="dial"
+        type="range"
+        min="875"
+        max="1080"
+        step="1"
+        value="1005"
+        aria-label="Sintonia"
+      />
+    </section>
+
+    <section class="controls">
+      <button id="playBtn" class="primary" type="button" aria-pressed="false">▶ Tocar</button>
+      <button id="stopBtn" type="button">⏹ Parar</button>
+      <button id="prevBtn" type="button">⏮ Anterior</button>
+      <button id="nextBtn" type="button">⏭ Próxima</button>
+
+      <div class="volume-wrap">
+        <span>🔊</span>
+        <input
+          id="volume"
+          class="volume"
+          type="range"
+          min="0"
+          max="1"
+          step="0.01"
+          value="0.9"
+          aria-label="Volume"
+        />
+      </div>
+    </section>
+
+    <section class="presets" id="presets"></section>
+
+    <section class="panel">
+      <h2>Adicionar estação personalizada</h2>
+
+      <form id="customForm">
+        <div class="grid-3">
+          <input
+            id="customName"
+            type="text"
+            placeholder="Nome da estação (opcional)"
+          />
+
+          <input
+            id="customUrl"
+            type="url"
+            placeholder="https://exemplo.com/stream.mp3"
+            required
+          />
+
+          <button class="primary" type="submit">
+            Adicionar e tocar
+          </button>
+        </div>
+      </form>
+    </section>
+
+    <section class="panel">
+      <h2>Buscar rádios online</h2>
+
+      <form id="searchForm">
+        <div class="grid-2">
+          <input
+            id="searchInput"
+            type="text"
+            placeholder="Ex.: jazz, rock, news, brasil..."
+          />
+          <button type="submit">Buscar</button>
+        </div>
+      </form>
+
+      <div
+        id="searchStatus"
+        class="status"
+        data-state="info"
+        role="status"
+        aria-live="polite"
+      ></div>
+
+      <div id="results" class="results"></div>
+    </section>
+
+    <p class="footer">
+      Salve este código como <code>radio.html</code> e abra no navegador.
+      Esta versão usa streaming pela internet e não usa o chip FM físico.
+      Algumas estações podem falhar por bloqueio do servidor, região ou protocolo.
+      Você pode editar as estações no código ou adicionar uma URL própria.
+    </p>
+  </main>
+
+  <script>
+    "use strict";
+
+    const INITIAL_STATIONS = [
+      {
+        freq: 88.1,
+        name: "Radio Paradise",
+        genre: "Eclectic",
+        url: "https://stream.radioparadise.com/mp3-128"
+      },
+      {
+        freq: 91.3,
+        name: "Radio Paradise Mellow",
+        genre: "Mellow",
+        url: "https://stream.radioparadise.com/mellow-128"
+      },
+      {
+        freq: 94.7,
+        name: "Radio Paradise Rock",
+        genre: "Rock",
+        url: "https://stream.radioparadise.com/rock-128"
+      },
+      {
+        freq: 97.3,
+        name: "SomaFM Groove Salad",
+        genre: "Ambient / Chill",
+        url: "https://ice1.somafm.com/groovesalad-128-mp3"
+      },
+      {
+        freq: 100.5,
+        name: "SomaFM Drone Zone",
+        genre: "Ambient Space",
+        url: "https://ice1.somafm.com/dronezone-128-mp3"
+      },
+      {
+        freq: 103.9,
+        name: "SomaFM Secret Agent",
+        genre: "Lounge / Spy",
+        url: "https://ice1.somafm.com/secretagent-128-mp3"
+      },
+      {
+        freq: 106.7,
+        name: "SomaFM DEF CON",
+        genre: "Electronic",
+        url: "https://ice1.somafm.com/defcon-128-mp3"
+      }
+    ];
+
+    const STATIONS_KEY = "radio.stations";
+
+    const storage = {
+      get(key) {
+        try {
+          return localStorage.getItem(key);
+        } catch (error) {
+          return null;
+        }
+      },
+      set(key, value) {
+        try {
+          localStorage.setItem(key, value);
+        } catch (error) {
+          /* Armazenamento indisponível */
+        }
+      }
+    };
+
+    function loadStations() {
+      const raw = storage.get(STATIONS_KEY);
+
+      if (!raw) return [...INITIAL_STATIONS];
+
+      try {
+        const parsed = JSON.parse(raw);
+
+        if (!Array.isArray(parsed)) return [...INITIAL_STATIONS];
+
+        const valid = parsed
+          .filter((s) => s && typeof s.url === "string" && /^https?:\/\//.test(s.url))
+          .map((s) => ({
+            freq: Number(s.freq) || 100.5,
+            name: String(s.name || "Estação"),
+            genre: String(s.genre || "Online"),
+            url: s.url
+          }));
+
+        return valid.length ? valid : [...INITIAL_STATIONS];
+      } catch (error) {
+        return [...INITIAL_STATIONS];
+      }
+    }
+
+    function saveStations() {
+      storage.set(STATIONS_KEY, JSON.stringify(stations));
+    }
+
+    let stations = loadStations();
+    let currentIndex = -1;
+    let manualStop = false;
+    let searchRequestId = 0;
+    let skipAttempts = 0;
+    let skipTimer = null;
+    let bufferTimer = null;
+
+    const audio = new Audio();
+    audio.preload = "none";
+    audio.volume = 0.9;
+
+    const savedVolume = storage.get("radio.volume");
+
+    if (savedVolume !== null) {
+      audio.volume = Math.min(1, Math.max(0, Number(savedVolume) || 0));
+    }
+
+    const $ = (id) => document.getElementById(id);
+
+    const radioEl = $("radio");
+    const freqEl = $("freq");
+    const statusEl = $("status");
+    const stationEl = $("station");
+    const genreEl = $("genre");
+    const eqEl = $("eq");
+    const dialEl = $("dial");
+    const playBtn = $("playBtn");
+    const stopBtn = $("stopBtn");
+    const prevBtn = $("prevBtn");
+    const nextBtn = $("nextBtn");
+    const volumeEl = $("volume");
+    volumeEl.value = String(audio.volume);
+    const presetsEl = $("presets");
+    const customForm = $("customForm");
+    const customName = $("customName");
+    const customUrl = $("customUrl");
+    const searchForm = $("searchForm");
+    const searchInput = $("searchInput");
+    const searchStatusEl = $("searchStatus");
+    const resultsEl = $("results");
+
+    const THEME_KEY = "radio.theme";
+    const themeButtons = document.querySelectorAll(".theme-dot");
+
+    function applyTheme(theme) {
+      const safe = ["ocean", "ember"].includes(theme) ? theme : "default";
+
+      document.documentElement.dataset.theme = safe;
+
+      themeButtons.forEach((btn) => {
+        btn.setAttribute("aria-pressed", String(btn.dataset.theme === safe));
+      });
+    }
+
+    applyTheme(storage.get(THEME_KEY) || "default");
+
+    themeButtons.forEach((btn) => {
+      btn.addEventListener("click", () => {
+        applyTheme(btn.dataset.theme);
+        storage.set(THEME_KEY, btn.dataset.theme);
+      });
+    });
+
+    for (let i = 0; i < 36; i++) {
+      const bar = document.createElement("i");
+      bar.style.animationDelay = `${(i % 12) * 0.08}s`;
+      bar.style.animationDuration = `${0.9 + (i % 7) * 0.08}s`;
+      eqEl.appendChild(bar);
+    }
+
+    function escapeHtml(value) {
+      return String(value ?? "").replace(/[&<>"']/g, (char) => {
+        return {
+          "&": "&amp;",
+          "<": "&lt;",
+          ">": "&gt;",
+          '"': "&quot;",
+          "'": "&#39;"
+        }[char];
+      });
+    }
+
+    function setStatus(text, state = "info") {
+      statusEl.textContent = text;
+      statusEl.dataset.state = state;
+    }
+
+    function setSearchStatus(text, state = "info") {
+      searchStatusEl.textContent = text;
+      searchStatusEl.dataset.state = state;
+    }
+
+    function setPlayingUI(isPlaying) {
+      radioEl.classList.toggle("playing", isPlaying);
+      playBtn.textContent = isPlaying ? "⏸ Pausar" : "▶ Tocar";
+      playBtn.setAttribute("aria-pressed", String(isPlaying));
+    }
+
+    function updateMediaSession(station) {
+      if (!("mediaSession" in navigator)) return;
+
+      try {
+        navigator.mediaSession.metadata = new MediaMetadata({
+          title: station.name,
+          artist: station.genre || "Web FM",
+          album: "Web FM Radio"
+        });
+      } catch (error) {
+        // Ignora se o navegador não suportar algum recurso.
+      }
+    }
+
+    function copyText(text) {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        return navigator.clipboard.writeText(text).then(
+          () => true,
+          () => false
+        );
+      }
+
+      const area = document.createElement("textarea");
+      area.value = text;
+      area.style.position = "fixed";
+      area.style.opacity = "0";
+      document.body.appendChild(area);
+      area.select();
+
+      let ok = false;
+
+      try {
+        ok = document.execCommand("copy");
+      } catch (error) {
+        ok = false;
+      }
+
+      area.remove();
+      return Promise.resolve(ok);
+    }
+
+    function renderPresets() {
+      presetsEl.innerHTML = "";
+
+      stations.forEach((station, index) => {
+        const wrap = document.createElement("div");
+        wrap.className = "preset" + (index === currentIndex ? " active" : "");
+
+        const main = document.createElement("button");
+        main.type = "button";
+        main.className = "preset-main";
+        main.title = station.url;
+        main.innerHTML = `
+          <small>${station.freq.toFixed(1)} MHz</small>
+          <span>${escapeHtml(station.name)}</span>
+        `;
+        main.addEventListener("click", (event) => {
+          if (event.target.closest(".preset-input")) return;
+          if (wrap.querySelector(".preset-input")) {
+            renderPresets();
+            return;
+          }
+          tune(index);
+        });
+
+        const actions = document.createElement("div");
+        actions.className = "preset-actions";
+
+        const info = document.createElement("button");
+        info.type = "button";
+        info.className = "preset-info";
+        info.textContent = "🔗";
+        info.setAttribute("aria-label", `Ver URL de ${station.name}`);
+        info.setAttribute("aria-expanded", "false");
+        info.addEventListener("click", () => {
+          const urlRow = wrap.querySelector(".preset-url");
+          const showing = !urlRow.hidden;
+          urlRow.hidden = showing;
+          info.setAttribute("aria-expanded", String(!showing));
+        });
+
+        const edit = document.createElement("button");
+        edit.type = "button";
+        edit.className = "preset-edit";
+        edit.textContent = "✎";
+        edit.setAttribute("aria-label", `Renomear ${station.name}`);
+        edit.addEventListener("click", () => editName(wrap, index));
+
+        const del = document.createElement("button");
+        del.type = "button";
+        del.className = "preset-del";
+        del.textContent = "✕";
+        del.setAttribute("aria-label", `Excluir ${station.name}`);
+        del.addEventListener("click", () => removeStation(index));
+
+        actions.append(info, edit, del);
+
+        const urlRow = document.createElement("div");
+        urlRow.className = "preset-url";
+        urlRow.hidden = true;
+
+        const code = document.createElement("code");
+        code.textContent = station.url;
+        code.title = station.url;
+
+        const copyBtn = document.createElement("button");
+        copyBtn.type = "button";
+        copyBtn.textContent = "Copiar";
+        copyBtn.addEventListener("click", () => {
+          copyText(station.url).then((ok) => {
+            copyBtn.textContent = ok ? "Copiado!" : "Falhou";
+            setTimeout(() => {
+              copyBtn.textContent = "Copiar";
+            }, 1200);
+          });
+        });
+
+        urlRow.append(code, copyBtn);
+        wrap.append(main, actions, urlRow);
+        presetsEl.appendChild(wrap);
+      });
+    }
+
+    function editName(wrap, index) {
+      const span = wrap.querySelector(".preset-main span");
+      const station = stations[index];
+
+      if (!span || !station) return;
+
+      const input = document.createElement("input");
+      input.type = "text";
+      input.className = "preset-input";
+      input.value = station.name;
+      input.maxLength = 60;
+      input.setAttribute("aria-label", "Nome da estação");
+
+      span.replaceWith(input);
+      input.focus();
+      input.select();
+
+      let done = false;
+
+      function commit() {
+        if (done) return;
+        done = true;
+
+        const name = input.value.trim();
+
+        if (name && name !== station.name) {
+          station.name = name;
+          saveStations();
+
+          if (index === currentIndex) {
+            stationEl.textContent = station.name;
+            document.title = `${station.name} — Web FM Radio`;
+            updateMediaSession(station);
+          }
+
+          setStatus(`Estação renomeada para "${name}".`, "info");
+        }
+
+        renderPresets();
+      }
+
+      function cancel() {
+        if (done) return;
+        done = true;
+        renderPresets();
+      }
+
+      input.addEventListener("keydown", (event) => {
+        if (event.key === "Enter") {
+          event.preventDefault();
+          commit();
+        } else if (event.key === "Escape") {
+          event.preventDefault();
+          cancel();
+        }
+      });
+
+      input.addEventListener("blur", commit);
+    }
+
+    function nextFreeFreq() {
+      const used = new Set(stations.map((station) => station.freq.toFixed(1)));
+
+      for (let value = 875; value <= 1080; value++) {
+        const freq = (value / 10).toFixed(1);
+
+        if (!used.has(freq)) {
+          return Number(freq);
+        }
+      }
+
+      return 108.0;
+    }
+
+    function clearPlaybackTimers() {
+      clearTimeout(skipTimer);
+      clearTimeout(bufferTimer);
+    }
+
+    function scheduleSkip() {
+      const total = stations.length;
+
+      if (!total) return;
+
+      skipAttempts += 1;
+
+      if (skipAttempts > total) {
+        skipAttempts = 0;
+        setStatus(
+          "Todas as estações falharam. Clique em Tocar para tentar de novo.",
+          "error"
+        );
+        setPlayingUI(false);
+        return;
+      }
+
+      setStatus(
+        `Falha. Tentando próxima estação (${skipAttempts}/${total})...`,
+        "error"
+      );
+
+      clearTimeout(skipTimer);
+      skipTimer = setTimeout(() => {
+        const next = currentIndex < 0 ? 0 : (currentIndex + 1) % stations.length;
+        loadStation(next, true);
+      }, 2500);
+    }
+
+    function armBufferTimer() {
+      clearTimeout(bufferTimer);
+      bufferTimer = setTimeout(() => {
+        if (audio.paused || audio.error) return;
+
+        if (audio.readyState < 2) {
+          setStatus("Stream sem resposta. Tentando próxima...", "error");
+          scheduleSkip();
+        }
+      }, 12000);
+    }
+
+    function loadStation(index, autoplay = true) {
+      const station = stations[index];
+
+      if (!station) return;
+
+      clearPlaybackTimers();
+      currentIndex = index;
+      manualStop = false;
+
+      dialEl.value = String(Math.round(station.freq * 10));
+      freqEl.textContent = station.freq.toFixed(1);
+      stationEl.textContent = station.name;
+      genreEl.textContent = station.genre || "Web rádio";
+      document.title = `${station.name} — Web FM Radio`;
+
+      renderPresets();
+      updateMediaSession(station);
+
+      audio.src = station.url;
+      audio.load();
+
+      if (autoplay) {
+        setStatus("Sintonizando...", "loading");
+        armBufferTimer();
+
+        const promise = audio.play();
+
+        if (promise && typeof promise.catch === "function") {
+          promise.catch(() => {
+            setStatus("Não foi possível reproduzir esta estação.", "error");
+            setPlayingUI(false);
+          });
+        }
+      } else {
+        setStatus("Estação pronta. Clique em Tocar.", "info");
+        setPlayingUI(false);
+      }
+    }
+
+    function tune(index) {
+      skipAttempts = 0;
+      loadStation(index, true);
+    }
+
+    function removeStation(index) {
+      if (stations.length <= 1) {
+        setStatus("Não é possível excluir a única estação restante.", "warn");
+        return;
+      }
+
+      const removed = stations[index];
+
+      stations.splice(index, 1);
+      saveStations();
+
+      if (currentIndex === index) {
+        loadStation(Math.min(index, stations.length - 1), false);
+      } else if (currentIndex > index) {
+        currentIndex -= 1;
+      }
+
+      renderPresets();
+      setStatus(`"${removed.name}" removida.`, "info");
+    }
+
+    function togglePlay() {
+      skipAttempts = 0;
+
+      if (!stations.length) {
+        setStatus("Nenhuma estação disponível.", "error");
+        return;
+      }
+
+      if (currentIndex < 0) {
+        loadStation(0, true);
+        return;
+      }
+
+      if (!audio.currentSrc) {
+        loadStation(currentIndex, true);
+        return;
+      }
+
+      if (audio.paused) {
+        setStatus("Retomando...", "loading");
+        armBufferTimer();
+
+        const promise = audio.play();
+
+        if (promise && typeof promise.catch === "function") {
+          promise.catch(() => {
+            setStatus("Não foi possível reproduzir.", "error");
+          });
+        }
+      } else {
+        audio.pause();
+      }
+    }
+
+    function stopPlayback() {
+      manualStop = true;
+      clearPlaybackTimers();
+      skipAttempts = 0;
+
+      audio.pause();
+      audio.removeAttribute("src");
+      audio.load();
+
+      setStatus("Parado", "info");
+      setPlayingUI(false);
+      document.title = "Web FM Radio";
+    }
+
+    function seek(direction) {
+      if (!stations.length) return;
+
+      let index = currentIndex + direction;
+
+      if (currentIndex < 0) {
+        index = direction > 0 ? 0 : stations.length - 1;
+      }
+
+      if (index < 0) index = stations.length - 1;
+      if (index >= stations.length) index = 0;
+
+      tune(index);
+    }
+
+    audio.addEventListener("playing", () => {
+      if (manualStop) return;
+
+      skipAttempts = 0;
+      clearTimeout(bufferTimer);
+
+      setStatus("Ao vivo", "ok");
+      setPlayingUI(true);
+
+      if ("mediaSession" in navigator) {
+        navigator.mediaSession.playbackState = "playing";
+      }
+    });
+
+    audio.addEventListener("pause", () => {
+      if (manualStop) return;
+
+      clearTimeout(bufferTimer);
+
+      if (audio.currentSrc) {
+        setStatus("Pausado", "info");
+        setPlayingUI(false);
+      }
+
+      if ("mediaSession" in navigator) {
+        navigator.mediaSession.playbackState = "paused";
+      }
+    });
+
+    audio.addEventListener("waiting", () => {
+      if (manualStop) return;
+      setStatus("Carregando...", "loading");
+    });
+
+    audio.addEventListener("stalled", () => {
+      if (manualStop) return;
+      setStatus("Aguardando dados...", "loading");
+    });
+
+    audio.addEventListener("error", () => {
+      if (manualStop) return;
+
+      if (currentIndex >= 0 && audio.currentSrc) {
+        setPlayingUI(false);
+        scheduleSkip();
+      }
+    });
+
+    playBtn.addEventListener("click", togglePlay);
+
+    stopBtn.addEventListener("click", stopPlayback);
+
+    prevBtn.addEventListener("click", () => {
+      seek(-1);
+    });
+
+    nextBtn.addEventListener("click", () => {
+      seek(1);
+    });
+
+    volumeEl.addEventListener("input", () => {
+      audio.volume = Number(volumeEl.value);
+      storage.set("radio.volume", String(audio.volume));
+    });
+
+    dialEl.addEventListener("input", () => {
+      const freq = Number(dialEl.value) / 10;
+      freqEl.textContent = freq.toFixed(1);
+      setStatus("Sintonizando...", "loading");
+    });
+
+    dialEl.addEventListener("change", () => {
+      const selectedFreq = Number(dialEl.value) / 10;
+
+      let bestIndex = -1;
+      let bestDiff = Infinity;
+
+      stations.forEach((station, index) => {
+        const diff = Math.abs(station.freq - selectedFreq);
+
+        if (diff < bestDiff) {
+          bestDiff = diff;
+          bestIndex = index;
+        }
+      });
+
+      if (bestIndex >= 0 && bestDiff <= 0.12) {
+        tune(bestIndex);
+      } else if (bestIndex >= 0 && bestDiff <= 0.9) {
+        freqEl.textContent = stations[bestIndex].freq.toFixed(1);
+        dialEl.value = String(Math.round(stations[bestIndex].freq * 10));
+        setStatus(`Estação mais próxima: ${stations[bestIndex].name}.`, "info");
+      } else {
+        setStatus("Sem estação nesta frequência.", "warn");
+      }
+    });
+
+    customForm.addEventListener("submit", (event) => {
+      event.preventDefault();
+
+      const name = customName.value.trim() || "Estação personalizada";
+      const url = customUrl.value.trim();
+
+      try {
+        const parsedUrl = new URL(url);
+
+        if (!["http:", "https:"].includes(parsedUrl.protocol)) {
+          setStatus("Use uma URL http ou https.", "error");
+          return;
+        }
+
+        if (location.protocol === "https:" && parsedUrl.protocol === "http:") {
+          setStatus("Página em HTTPS não pode tocar stream HTTP.", "error");
+          return;
+        }
+      } catch (error) {
+        setStatus("URL inválida.", "error");
+        return;
+      }
+
+      const station = {
+        freq: nextFreeFreq(),
+        name,
+        genre: "Personalizada",
+        url
+      };
+
+      stations.push(station);
+      saveStations();
+      renderPresets();
+      tune(stations.length - 1);
+      customForm.reset();
+    });
+
+    searchForm.addEventListener("submit", async (event) => {
+      event.preventDefault();
+
+      const query = searchInput.value.trim();
+
+      if (!query) return;
+
+      const requestId = ++searchRequestId;
+
+      resultsEl.innerHTML = "";
+      setSearchStatus("Buscando...", "loading");
+
+      try {
+        const apiUrl = new URL(
+          "https://all.api.radio-browser.info/json/stations/search"
+        );
+
+        apiUrl.searchParams.set("name", query);
+        apiUrl.searchParams.set("limit", "18");
+        apiUrl.searchParams.set("hidebroken", "true");
+        apiUrl.searchParams.set("order", "votes");
+        apiUrl.searchParams.set("reverse", "true");
+
+        const response = await fetch(apiUrl.toString(), {
+          headers: {
+            Accept: "application/json"
+          }
+        });
+
+        if (!response.ok) {
+          throw new Error("HTTP " + response.status);
+        }
+
+        const data = await response.json();
+
+        if (requestId !== searchRequestId) return;
+
+        const requireHttps = location.protocol === "https:";
+
+        const playable = data.filter((item) => {
+          const url = item.url_resolved || item.url;
+
+          if (!url) return false;
+
+          try {
+            const parsedUrl = new URL(url);
+
+            if (parsedUrl.protocol === "https:") return true;
+            if (parsedUrl.protocol === "http:") return !requireHttps;
+
+            return false;
+          } catch (error) {
+            return false;
+          }
+        });
+
+        if (!playable.length) {
+          setSearchStatus(
+            "Nenhuma estação compatível encontrada. Tente outro termo.",
+            "warn"
+          );
+          return;
+        }
+
+        setSearchStatus(
+          `${playable.length} estações encontradas. Clique para tocar.`,
+          "ok"
+        );
+
+        playable.forEach((item) => {
+          const url = item.url_resolved || item.url;
+
+          const button = document.createElement("button");
+          button.type = "button";
+          button.className = "result";
+
+          const tag = (item.tags || "").split(",").filter(Boolean)[0] || "Online";
+
+          button.innerHTML = `
+            <small>
+              ${escapeHtml(item.codec || "")}
+              ${item.bitrate ? escapeHtml(item.bitrate + " kbps") : ""}
+            </small>
+            <span>${escapeHtml(item.name || "Sem nome")}</span>
+          `;
+
+          button.addEventListener("click", () => {
+            const existingIndex = stations.findIndex(
+              (station) => station.url === url
+            );
+
+            if (existingIndex >= 0) {
+              tune(existingIndex);
+              return;
+            }
+
+            const station = {
+              freq: nextFreeFreq(),
+              name: item.name || "Web station",
+              genre: tag,
+              url
+            };
+
+            stations.push(station);
+            saveStations();
+            renderPresets();
+            tune(stations.length - 1);
+          });
+
+          resultsEl.appendChild(button);
+        });
+      } catch (error) {
+        setSearchStatus(
+          "Falha na busca. Verifique sua conexão ou tente novamente.",
+          "error"
+        );
+      }
+    });
+
+    document.addEventListener("keydown", (event) => {
+      if (event.target.closest("input, textarea, select, button")) {
+        return;
+      }
+
+      if (event.code === "Space") {
+        event.preventDefault();
+        togglePlay();
+      }
+
+      if (event.code === "ArrowRight") {
+        seek(1);
+      }
+
+      if (event.code === "ArrowLeft") {
+        seek(-1);
+      }
+    });
+
+    if ("mediaSession" in navigator) {
+      try {
+        navigator.mediaSession.setActionHandler("play", () => {
+          if (audio.paused) togglePlay();
+        });
+        navigator.mediaSession.setActionHandler("pause", () => {
+          if (!audio.paused) togglePlay();
+        });
+        navigator.mediaSession.setActionHandler("previoustrack", () => seek(-1));
+        navigator.mediaSession.setActionHandler("nexttrack", () => seek(1));
+      } catch (error) {
+        // Alguns navegadores podem não suportar todos os controles.
+      }
+    }
+
+    renderPresets();
+    loadStation(0, false);
+  </script>
+</body>
+</html>
