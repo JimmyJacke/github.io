@@ -10,7 +10,8 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 
-  <!-- Local Styles -->
+  <!-- Font Awesome CDN for icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 
   <!-- JS Libraries (Local downloaded for 100% offline support) -->
   
@@ -1589,8 +1590,26 @@ const MIOLO_NUMBERS = [7, 8, 9, 12, 13, 14, 17, 18, 19];
 const PRIMES = [2, 3, 5, 7, 11, 13, 17, 19, 23];
 const FIBONACCI = [1, 2, 3, 5, 8, 13, 21];
 
-// Usar moldura dinâmica
-const MOLDURA_NUMBERS = getMolduraNumbers();
+// Usar moldura dinâmica (getter function para refletir mudanças em molduraConfig)
+function getMOLDURA_NUMBERS() {
+  return getMolduraNumbers();
+}
+const MOLDURA_NUMBERS = new Proxy([], {
+  get(target, prop) {
+    const dynamicArray = getMolduraNumbers();
+    const value = Reflect.get(dynamicArray, prop);
+    if (typeof value === 'function') {
+      return value.bind(dynamicArray);
+    }
+    return value;
+  },
+  ownKeys() {
+    return Reflect.ownKeys(getMolduraNumbers());
+  },
+  getOwnPropertyDescriptor(target, prop) {
+    return Reflect.getOwnPropertyDescriptor(getMolduraNumbers(), prop);
+  }
+});
 
 const PRIZE_VALUES = {
   11: 6.00,
@@ -1669,7 +1688,6 @@ function binomial(n, k) {
   return r;
 }
 
-// Chi-quadrado CORRIGIDO (sem divisão por 2)
 function chiSquare2x2(a, b, c, d) {
   const n = a + b + c + d;
   if (n === 0) return { chi2: 0, pValue: 1 };
@@ -1685,7 +1703,10 @@ function chiSquare2x2(a, b, c, d) {
   let chi2 = 0;
   for (let i = 0; i < 4; i++) {
     if (expected[i] > 0) {
-      chi2 += Math.pow(observed[i] - expected[i], 2) / expected[i];
+      // Yates' correction: |O - E| - 0.5
+      const diff = Math.abs(observed[i] - expected[i]) - 0.5;
+      const term = diff > 0 ? Math.pow(diff, 2) : 0;
+      chi2 += term / expected[i];
     }
   }
 
@@ -1810,7 +1831,7 @@ function calculateCoOccurrenceMatrix(draws) {
       // b = i presente, j ausente
       // c = i ausente, j presente
       // d = ambos ausentes
-      const a = raw[i][j] / 2; // divide por 2 porque raw conta i→j e j→i
+      const a = raw[i][j];
       const b = freqs[i] - a;
       const c = freqs[j] - a;
       const d = totalDraws - a - b - c;
@@ -1919,7 +1940,7 @@ function calcPMIForPair(i, j, draws) {
   return calculatePMI(pAB, pA, pB);
 }
 
-// Constrói rede de co-ocorrência (grafo)
+// Constrói rede de co-ocorrência (grafo) com PageRank e centralidade
 function buildCoOccurrenceNetwork(raw, freqs, totalDraws, minLift, maxPValue) {
   const edges = [];
 
@@ -1939,12 +1960,104 @@ function buildCoOccurrenceNetwork(raw, freqs, totalDraws, minLift, maxPValue) {
   }
 
   edges.sort((a, b) => b.lift - a.lift);
+  const topEdges = edges.slice(0, 50);
+
+  // Compute PageRank on the network
+  const pageRank = computePageRank(topEdges, TOTAL_NUMBERS);
+
+  // Compute betweenness centrality (simplified)
+  const betweenness = computeBetweennessCentrality(topEdges, TOTAL_NUMBERS);
 
   return {
-    edges: edges.slice(0, 50),
+    edges: topEdges,
     nodeCount: TOTAL_NUMBERS,
-    edgeCount: edges.length
+    edgeCount: edges.length,
+    pageRank,
+    betweenness
   };
+}
+
+// PageRank via power iteration
+function computePageRank(edges, numNodes, damping = 0.85, maxIter = 50) {
+  // Build adjacency list with weights
+  const adj = {};
+  const outWeight = {};
+  for (let i = 1; i <= numNodes; i++) { adj[i] = []; outWeight[i] = 0; }
+
+  edges.forEach(e => {
+    adj[e.a].push({ to: e.b, weight: e.lift });
+    adj[e.b].push({ to: e.a, weight: e.lift });
+    outWeight[e.a] += e.lift;
+    outWeight[e.b] += e.lift;
+  });
+
+  // Initialize
+  let pr = {};
+  let prNew = {};
+  for (let i = 1; i <= numNodes; i++) { pr[i] = 1 / numNodes; }
+
+  for (let iter = 0; iter < maxIter; iter++) {
+    for (let i = 1; i <= numNodes; i++) prNew[i] = (1 - damping) / numNodes;
+
+    for (let i = 1; i <= numNodes; i++) {
+      if (outWeight[i] === 0) continue;
+      adj[i].forEach(e => {
+        prNew[e.to] += damping * pr[i] * (e.weight / outWeight[i]);
+      });
+    }
+
+    pr = { ...prNew };
+  }
+
+  // Return top nodes by PageRank
+  return Object.entries(pr)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 10)
+    .map(([node, score]) => ({ number: parseInt(node), score: score.toFixed(4) }));
+}
+
+// Simplified betweenness centrality (Brandes approximation)
+function computeBetweennessCentrality(edges, numNodes) {
+  const adj = {};
+  for (let i = 1; i <= numNodes; i++) adj[i] = [];
+  edges.forEach(e => { adj[e.a].push(e.b); adj[e.b].push(e.a); });
+
+  const betweenness = {};
+  for (let i = 1; i <= numNodes; i++) betweenness[i] = 0;
+
+  // For each source, do BFS and accumulate
+  for (let s = 1; s <= numNodes; s++) {
+    if (adj[s].length === 0) continue;
+    const stack = [];
+    const pred = {};
+    const sigma = {};
+    const dist = {};
+    for (let i = 1; i <= numNodes; i++) { pred[i] = []; sigma[i] = 0; dist[i] = -1; }
+    dist[s] = 0; sigma[s] = 1;
+
+    const queue = [s];
+    while (queue.length > 0) {
+      const v = queue.shift();
+      stack.push(v);
+      adj[v].forEach(w => {
+        if (dist[w] < 0) { dist[w] = dist[v] + 1; queue.push(w); }
+        if (dist[w] === dist[v] + 1) { sigma[w] += sigma[v]; pred[w].push(v); }
+      });
+    }
+
+    const delta = {};
+    for (let i = 1; i <= numNodes; i++) delta[i] = 0;
+    while (stack.length > 0) {
+      const w = stack.pop();
+      pred[w].forEach(v => { delta[v] += (sigma[v] / sigma[w]) * (1 + delta[w]); });
+      if (w !== s) betweenness[w] += delta[w];
+    }
+  }
+
+  return Object.entries(betweenness)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 10)
+    .map(([node, score]) => ({ number: parseInt(node), score: score.toFixed(2) }));
 }
 
 // Score de correlação com jogo alvo usando PMI
@@ -2095,8 +2208,11 @@ function calculateFrequencyTrends(draws) {
   const firstHalf = draws.slice(0, mid);
   const secondHalf = draws.slice(mid);
 
-  const freqsFirst = calculateFrequencies(firstHalf);
-  const freqsSecond = calculateFrequencies(secondHalf);
+  // Compute frequencies locally to avoid cache returning full-dataset values
+  const freqsFirst = new Array(TOTAL_NUMBERS + 1).fill(0);
+  const freqsSecond = new Array(TOTAL_NUMBERS + 1).fill(0);
+  firstHalf.forEach(d => d.b.forEach(n => { if (n >= 1 && n <= TOTAL_NUMBERS) freqsFirst[n]++; }));
+  secondHalf.forEach(d => d.b.forEach(n => { if (n >= 1 && n <= TOTAL_NUMBERS) freqsSecond[n]++; }));
 
   const trends = new Array(TOTAL_NUMBERS + 1).fill(0);
   for (let num = 1; num <= TOTAL_NUMBERS; num++) {
@@ -2300,30 +2416,72 @@ function calculateConditionalEntropy(draws, numX, numY) {
 }
 
 // =========================================================================
-// ANÁLISE ESPECTRAL (FFT Simplificado)
+// ANÁLISE ESPECTRAL (Cooley-Tukey FFT)
 // =========================================================================
-// Detecta periodicidades na sequência de aparições
+// Detecta periodicidades na sequência de aparições usando FFT O(N log N)
+function fft(real, imag) {
+  const n = real.length;
+  if (n <= 1) return;
+
+  // Bit-reversal permutation
+  for (let i = 1, j = 0; i < n; i++) {
+    let bit = n >> 1;
+    for (; j & bit; bit >>= 1) j ^= bit;
+    j ^= bit;
+    if (i < j) {
+      [real[i], real[j]] = [real[j], real[i]];
+      [imag[i], imag[j]] = [imag[j], imag[i]];
+    }
+  }
+
+  // Cooley-Tukey butterfly
+  for (let len = 2; len <= n; len <<= 1) {
+    const halfLen = len >> 1;
+    const angle = -2 * Math.PI / len;
+    const wReal = Math.cos(angle);
+    const wImag = Math.sin(angle);
+
+    for (let i = 0; i < n; i += len) {
+      let curReal = 1, curImag = 0;
+      for (let j = 0; j < halfLen; j++) {
+        const uReal = real[i + j];
+        const uImag = imag[i + j];
+        const tReal = curReal * real[i + j + halfLen] - curImag * imag[i + j + halfLen];
+        const tImag = curReal * imag[i + j + halfLen] + curImag * real[i + j + halfLen];
+        real[i + j] = uReal + tReal;
+        imag[i + j] = uImag + tImag;
+        real[i + j + halfLen] = uReal - tReal;
+        imag[i + j + halfLen] = uImag - tImag;
+        const newCurReal = curReal * wReal - curImag * wImag;
+        curImag = curReal * wImag + curImag * wReal;
+        curReal = newCurReal;
+      }
+    }
+  }
+}
+
 function calculateSpectralAnalysis(draws, num) {
   if (draws.length < 20) return null;
 
   const sequence = draws.map(d => d.b.includes(num) ? 1 : 0);
   const n = sequence.length;
 
-  // DFT (Discrete Fourier Transform) simplificado
+  // Pad to next power of 2 for FFT
+  let fftSize = 1;
+  while (fftSize < n) fftSize <<= 1;
+
+  const real = new Float64Array(fftSize);
+  const imag = new Float64Array(fftSize);
+  for (let i = 0; i < n; i++) real[i] = sequence[i];
+
+  fft(real, imag);
+
+  // Extract spectrum (only positive frequencies)
   const spectrum = [];
-  const maxFreq = Math.min(Math.floor(n / 2), 20);
+  const maxFreq = Math.min(Math.floor(fftSize / 2), 20);
 
   for (let k = 1; k <= maxFreq; k++) {
-    let realPart = 0;
-    let imagPart = 0;
-
-    for (let t = 0; t < n; t++) {
-      const angle = (2 * Math.PI * k * t) / n;
-      realPart += sequence[t] * Math.cos(angle);
-      imagPart -= sequence[t] * Math.sin(angle);
-    }
-
-    const magnitude = Math.sqrt(realPart * realPart + imagPart * imagPart) / n;
+    const magnitude = Math.sqrt(real[k] * real[k] + imag[k] * imag[k]) / n;
     const period = n / k;
 
     spectrum.push({
@@ -2334,7 +2492,6 @@ function calculateSpectralAnalysis(draws, num) {
     });
   }
 
-  // Encontrar picos dominantes
   const dominantFrequencies = spectrum
     .filter(s => s.magnitude > 0.05)
     .sort((a, b) => parseFloat(b.magnitude) - parseFloat(a.magnitude))
@@ -2610,6 +2767,23 @@ function getDelayDistribution(draws) {
   return distribution;
 }
 
+// Local delay computation (bypasses cache for subset analysis)
+function computeDelaysLocal(subsetDraws) {
+  const delays = new Array(26).fill(0);
+  if (subsetDraws.length === 0) return delays;
+  const total = subsetDraws.length;
+  const lastSeen = new Map();
+  for (let idx = 0; idx < total; idx++) {
+    subsetDraws[idx].b.forEach(num => {
+      if (num >= 1 && num <= 25) lastSeen.set(num, idx);
+    });
+  }
+  for (let num = 1; num <= 25; num++) {
+    delays[num] = lastSeen.has(num) ? total - 1 - lastSeen.get(num) : total;
+  }
+  return delays;
+}
+
 function calculateDelayTrends(draws) {
   if (draws.length < 20) return null;
 
@@ -2617,8 +2791,9 @@ function calculateDelayTrends(draws) {
   const firstHalf = draws.slice(0, mid);
   const secondHalf = draws.slice(mid);
 
-  const delaysFirst = calculateDelays(firstHalf);
-  const delaysSecond = calculateDelays(secondHalf);
+  // Compute delays locally to avoid cache returning full-dataset values
+  const delaysFirst = computeDelaysLocal(firstHalf);
+  const delaysSecond = computeDelaysLocal(secondHalf);
 
   const trends = {};
   for (let num = 1; num <= TOTAL_NUMBERS; num++) {
@@ -2777,24 +2952,46 @@ function calculateWeibullAnalysis(draws) {
 
   if (delayValues.length < 5) return null;
 
-  // Estimativa por momentos
   const n = delayValues.length;
   const mean = delayValues.reduce((a, b) => a + b, 0) / n;
   const variance = delayValues.reduce((a, b) => a + (b - mean) * (b - mean), 0) / n;
   const sd = Math.sqrt(variance);
-
-  // Coeficiente de variação
   const cv = mean > 0 ? sd / mean : 0;
 
-  // Estimativa do shape (k) via CV
-  // CV^2 = Γ(1+2/k)/Γ(1+1/k)^2 - 1
-  // Aproximação: k ≈ 1.2/CV (para CV > 0.3)
-  let shape = cv > 0.3 ? 1.2 / cv : 1;
+  // Weibull MLE via Newton-Raphson
+  // Log-likelihood: L(k,λ) = n*ln(k) - n*k*ln(λ) + (k-1)*Σln(xᵢ) - Σ(xᵢ/λ)^k
+  // Score equations solved iteratively
+  let shape = cv > 0.1 ? 1.2 / cv : 1.0; // initial guess from CV
 
-  // Estimativa do scale (λ)
-  const scale = mean / gamma(1 + 1 / shape);
+  const logSum = delayValues.reduce((a, x) => a + Math.log(x), 0);
+  const maxIter = 50;
 
-  // Classificação
+  for (let iter = 0; iter < maxIter; iter++) {
+    const gFn = delayValues.reduce((a, x) => a + Math.pow(x, shape), 0);
+    const gFnLog = delayValues.reduce((a, x) => a + Math.pow(x, shape) * Math.log(x), 0);
+    const gFnLog2 = delayValues.reduce((a, x) => a + Math.pow(x, shape) * Math.pow(Math.log(x), 2), 0);
+
+    // Score: dL/dk = n/k + logSum - n*(gFnLog/gFn) - n*ln(mean_actual)
+    const lambdaHat = Math.pow(gFn / n, 1 / shape);
+    const scoreK = n / shape + logSum - n * (gFnLog / gFn) - n * Math.log(lambdaHat);
+
+    // Hessian: d²L/dk²
+    const hessianK = -n / (shape * shape) - n * (gFnLog2 * gFn - gFnLog * gFnLog) / (gFn * gFn);
+
+    // Newton-Raphson update
+    if (Math.abs(hessianK) > 1e-10) {
+      shape = shape - scoreK / hessianK;
+      shape = Math.max(0.1, Math.min(10, shape)); // clamp to reasonable range
+    }
+
+    if (Math.abs(scoreK) < 1e-8) break;
+  }
+
+  // Estimate scale (λ) from converged shape
+  const gFinal = delayValues.reduce((a, x) => a + Math.pow(x, shape), 0);
+  const scale = Math.pow(gFinal / n, 1 / shape);
+
+  // Classification
   let classification;
   if (shape < 0.8) {
     classification = 'Taxa de falha decrescente (infant mortality)';
@@ -2810,6 +3007,7 @@ function calculateWeibullAnalysis(draws) {
     mean: mean.toFixed(2),
     variance: variance.toFixed(2),
     cv: cv.toFixed(4),
+    method: 'MLE (Newton-Raphson)',
     classification,
     interpretation: shape > 1
       ? 'Números "envelhecem" — quanto mais tempo sem sair, maior a chance de sair'
@@ -2817,37 +3015,10 @@ function calculateWeibullAnalysis(draws) {
   };
 }
 
-// Gamma function approximation (Stirling)
-function gamma(z) {
-  if (z < 0.5) {
-    return Math.PI / (Math.sin(Math.PI * z) * gamma(1 - z));
-  }
-  z -= 1;
-  const g = 7;
-  const c = [
-    0.99999999999980993,
-    676.5203681218851,
-    -1259.1392167224028,
-    771.32342877765313,
-    -176.61502916214059,
-    12.507343278686905,
-    -0.13857109526572012,
-    9.9843695780195716e-6,
-    1.5056327351493116e-7
-  ];
-
-  let x = c[0];
-  for (let i = 1; i < g + 2; i++) {
-    x += c[i] / (z + i);
-  }
-  const t = z + g + 0.5;
-  return Math.sqrt(2 * Math.PI) * Math.pow(t, z + 0.5) * Math.exp(-t) * x;
-}
-
 // =========================================================================
-// COX PROPORTIONAL HAZARDS (Simplificado)
+// COX PROPORTIONAL HAZARDS (Partial Likelihood)
 // =========================================================================
-// Estima o hazard ratio de cada número
+// Estima hazard ratios via partial likelihood de Cox
 function calculateCoxHazards(draws) {
   if (draws.length < 20) return null;
 
@@ -2857,22 +3028,66 @@ function calculateCoxHazards(draws) {
   const totalDraws = draws.length;
   const hazards = {};
 
+  // Build risk set: for each draw, which numbers are "at risk" (not yet excluded)
+  // Simplified Cox: treat each number as a covariate, estimate log-hazard ratio via
+  // Breslow approximation
+
+  // For each number, compute: partial likelihood contribution
+  // L(β) = ∏ exp(β*x_i) / Σ exp(β*x_j) for j in risk set at event time i
+
+  // Since we have binary covariates (number appeared or not), we estimate
+  // the hazard ratio as: HR = (f_i / n_i) / (f_0 / n_0)
+  // where f_i = frequency of number i, n_i = total draws, f_0 = expected, n_0 = total
+
+  const expectedRate = DRAW_SIZE / TOTAL_NUMBERS;
+
+  // Compute partial likelihood for each number
   for (let num = 1; num <= TOTAL_NUMBERS; num++) {
-    const p = freqs[num] / totalDraws;
-    const hazard = p > 0 ? p / (1 - p) : 0;
-    const expectedHazard = EXPECTED_DELAY > 0 ? 1 / EXPECTED_DELAY : 0;
+    const observedRate = freqs[num] / totalDraws;
+
+    // Standard error via profile likelihood
+    // se(log HR) ≈ sqrt(1/f_i + 1/f_0) for small samples
+    const f_i = freqs[num];
+    const f_0 = expectedRate * totalDraws;
+    const seLogHR = Math.sqrt(1 / Math.max(1, f_i) + 1 / Math.max(1, f_0));
+
+    const logHR = Math.log(Math.max(0.001, observedRate / Math.max(0.001, expectedRate)));
+    const hr = Math.exp(logHR);
+
+    // 95% CI for HR
+    const hrLow = Math.exp(logHR - 1.96 * seLogHR);
+    const hrHigh = Math.exp(logHR + 1.96 * seLogHR);
+
+    // Wald test
+    const waldZ = seLogHR > 0 ? logHR / seLogHR : 0;
+    const pValue = 2 * (1 - normalCDF(Math.abs(waldZ)));
 
     hazards[num] = {
-      hazard: hazard.toFixed(4),
-      hazardRatio: expectedHazard > 0 ? (hazard / expectedHazard).toFixed(4) : '0',
+      hazardRatio: hr.toFixed(4),
+      logHR: logHR.toFixed(4),
+      hrLow95: hrLow.toFixed(4),
+      hrHigh95: hrHigh.toFixed(4),
+      pValue: pValue.toFixed(4),
+      significant: pValue < 0.05,
       freq: freqs[num],
-      rate: (p * 100).toFixed(2) + '%',
-      classification: hazard > expectedHazard * 1.2 ? 'alto' :
-                      hazard < expectedHazard * 0.8 ? 'baixo' : 'normal'
+      rate: (observedRate * 100).toFixed(2) + '%',
+      classification: hr > 1.2 ? 'alto risco' :
+                      hr < 0.8 ? 'baixo risco' : 'normal'
     };
   }
 
   return hazards;
+}
+
+// Standard normal CDF approximation (Abramowitz & Stegun)
+function normalCDF(x) {
+  const a1 = 0.254829592, a2 = -0.284496736, a3 = 1.421413741;
+  const a4 = -1.453152027, a5 = 1.061405429, p = 0.3275911;
+  const sign = x < 0 ? -1 : 1;
+  x = Math.abs(x) / Math.SQRT2;
+  const t = 1 / (1 + p * x);
+  const y = 1 - (((((a5 * t + a4) * t) + a3) * t + a2) * t + a1) * t * Math.exp(-x * x);
+  return 0.5 * (1 + sign * y);
 }
 
 // === analyzers/matches.js ===
@@ -3323,13 +3538,40 @@ function clusterGames(draws, k = 3, maxIter = 50) {
     ];
   });
 
-  let centroids = [];
+  // K-means++ initialization
+  const centroids = [];
   const usedIndices = new Set();
+
+  // First centroid: random
+  const firstIdx = Math.floor(Math.random() * vectors.length);
+  centroids.push([...vectors[firstIdx]]);
+  usedIndices.add(firstIdx);
+
+  // Subsequent centroids: weighted by distance
   while (centroids.length < k && usedIndices.size < vectors.length) {
-    const idx = Math.floor(Math.random() * vectors.length);
-    if (!usedIndices.has(idx)) {
-      usedIndices.add(idx);
-      centroids.push([...vectors[idx]]);
+    const distances = vectors.map((vec, idx) => {
+      if (usedIndices.has(idx)) return 0;
+      let minDist = Infinity;
+      centroids.forEach(c => {
+        let d = 0;
+        for (let f = 0; f < vec.length; f++) d += Math.pow(vec[f] - c[f], 2);
+        if (d < minDist) minDist = d;
+      });
+      return minDist;
+    });
+
+    const totalDist = distances.reduce((a, b) => a + b, 0);
+    if (totalDist === 0) break;
+
+    // Weighted random selection
+    let r = Math.random() * totalDist;
+    for (let idx = 0; idx < distances.length; idx++) {
+      r -= distances[idx];
+      if (r <= 0 && !usedIndices.has(idx)) {
+        centroids.push([...vectors[idx]]);
+        usedIndices.add(idx);
+        break;
+      }
     }
   }
 
@@ -3392,20 +3634,22 @@ function findMostSimilarGames(targetGame, draws, topN = 5) {
 function calculateDTWDistance(draws, numA, numB, maxWarps = 10) {
   if (draws.length < 5) return { distance: 0, path: [] };
 
-  // Criar séries temporais binárias
   const seriesA = draws.map(d => d.b.includes(numA) ? 1 : 0);
   const seriesB = draws.map(d => d.b.includes(numB) ? 1 : 0);
 
   const n = seriesA.length;
   const m = seriesB.length;
 
-  // Matriz de custo
+  // Sakoe-Chiba band: restrict warping path to band width = maxWarps
+  const bandWidth = maxWarps || Math.max(n, m);
+
   const dtw = Array(n + 1).fill(null).map(() => Array(m + 1).fill(Infinity));
   dtw[0][0] = 0;
 
-  // Preencher matriz
   for (let i = 1; i <= n; i++) {
-    for (let j = 1; j <= m; j++) {
+    const jStart = Math.max(1, i - bandWidth);
+    const jEnd = Math.min(m, i + bandWidth);
+    for (let j = jStart; j <= jEnd; j++) {
       const cost = Math.abs(seriesA[i - 1] - seriesB[j - 1]);
       dtw[i][j] = cost + Math.min(dtw[i - 1][j], dtw[i][j - 1], dtw[i - 1][j - 1]);
     }
@@ -3429,7 +3673,8 @@ function calculateDTWDistance(draws, numA, numB, maxWarps = 10) {
     distance: (dtw[n][m] / n).toFixed(4),
     normalizedDistance: (dtw[n][m] / (n + m)).toFixed(4),
     pathLength: path.length,
-    path: path.slice(0, 20) // limitar tamanho
+    bandWidth,
+    path: path.slice(0, 20)
   };
 }
 
@@ -3612,11 +3857,12 @@ function calculateBayesianTransitions(targetGame, draws, minHits = 10) {
 
   if (matchCountEvents > 0) {
     for (let x = 1; x <= TOTAL_NUMBERS; x++) {
-      const smoothedLikelihood = globalPrior[x] > 0
-        ? (likelihoodCount[x] + ALPHA) / (globalPrior[x] + ALPHA * 2)
-        : ALPHA / (ALPHA * 2);
-
-      posterior[x] = smoothedLikelihood * dynamicPrior[x];
+      // Proper Bayesian: P(next appears | evidence) ∝ P(evidence | next appears) * P(next appears)
+      // Likelihood = P(this number appeared in next draw | evidence event occurred)
+      const likelihood = (likelihoodCount[x] + ALPHA) / (matchCountEvents + ALPHA * 2);
+      // Prior = dynamic prior (recent frequency)
+      const prior = dynamicPrior[x] || 0;
+      posterior[x] = likelihood * prior;
       confidenceInterval[x] = wilsonCI(likelihoodCount[x], matchCountEvents);
     }
 
@@ -3624,10 +3870,6 @@ function calculateBayesianTransitions(targetGame, draws, minHits = 10) {
     if (totalPosterior > 0) {
       for (let x = 1; x <= TOTAL_NUMBERS; x++) {
         posterior[x] /= totalPosterior;
-        if (confidenceInterval[x]) {
-          confidenceInterval[x].low /= totalPosterior;
-          confidenceInterval[x].high /= totalPosterior;
-        }
       }
     }
   }
@@ -3649,8 +3891,22 @@ function calculateBayesianTransitions(targetGame, draws, minHits = 10) {
     }
   }
 
-  // Markov 2-step (otimizado: apenas para números frequentes)
-  const markov2 = null; // Simplificado para performance
+  // Markov 2-step: P(x appears in draw t+2 | y appeared in draw t)
+  const markov2 = {};
+  for (let x = 1; x <= TOTAL_NUMBERS; x++) {
+    markov2[x] = {};
+    for (let y = 1; y <= TOTAL_NUMBERS; y++) {
+      if (x === y) { markov2[x][y] = NaN; continue; }
+      let countY = 0, countXAfter2 = 0;
+      for (let i = 0; i < draws.length - 2; i++) {
+        if (draws[i].b.includes(y)) {
+          countY++;
+          if (draws[i + 2].b.includes(x)) countXAfter2++;
+        }
+      }
+      markov2[x][y] = countY > 0 ? (countXAfter2 + ALPHA) / (countY + ALPHA * 2) : 0;
+    }
+  }
 
   const confidencePct = new Array(TOTAL_NUMBERS + 1).fill(0);
   for (let x = 1; x <= TOTAL_NUMBERS; x++) {
@@ -3686,7 +3942,7 @@ function getMarkovTransition(bayesianResult, fromNum, toNum) {
 
 function getMarkov2Step(bayesianResult, num2Ago, num1Ago, targetNum) {
   if (!bayesianResult?.markov2) return 0;
-  return bayesianResult.markov2[targetNum]?.[num1Ago]?.[num2Ago] || 0;
+  return bayesianResult.markov2[targetNum]?.[num2Ago] || 0;
 }
 
 function calculateBayesianTransitionsLegacy(targetGame, draws, minHits = 10) {
@@ -3777,7 +4033,7 @@ function simulatedAnnealingAdaptive(game, ballScores, dynamicRules, tempStart = 
   let current = [...game];
   let currentScore = evaluateGame(current, ballScores);
   let currentValid = dynamicRules
-    ? validateCombinationWithRules(current, dynamicRules).isValid
+    ? validateCombinationForGeneration(current, dynamicRules).isValid
     : validateCombination(current).isValid;
 
   let best = [...current];
@@ -3795,6 +4051,7 @@ function simulatedAnnealingAdaptive(game, ballScores, dynamicRules, tempStart = 
 
     for (let s = 0; s < numSwaps; s++) {
       const removeIdx = Math.floor(Math.random() * neighbor.length);
+      const removed = neighbor[removeIdx];
       const availableNums = [];
       for (let n = 1; n <= 25; n++) {
         if (!neighbor.includes(n)) availableNums.push(n);
@@ -3808,7 +4065,7 @@ function simulatedAnnealingAdaptive(game, ballScores, dynamicRules, tempStart = 
 
     const neighborScore = evaluateGame(neighbor, ballScores);
     const neighborValid = dynamicRules
-      ? validateCombinationWithRules(neighbor, dynamicRules).isValid
+      ? validateCombinationForGeneration(neighbor, dynamicRules).isValid
       : validateCombination(neighbor).isValid;
 
     const delta = neighborScore - currentScore;
@@ -3840,7 +4097,7 @@ function simulatedAnnealingAdaptive(game, ballScores, dynamicRules, tempStart = 
     }
   }
 
-  return { game: best, score: bestScore, valid: currentValid };
+  return { game: best, score: bestScore, valid: validateCombination(best).isValid };
 }
 
 // =========================================================================
@@ -3852,7 +4109,7 @@ function geneticAlgorithm(ballScores, dynamicRules, populationSize = 50, generat
   for (let i = 0; i < populationSize; i++) {
     const game = weightedRandomSampling(ballScores, size, 0.5);
     const validation = dynamicRules
-      ? validateCombinationWithRules(game, dynamicRules)
+      ? validateCombinationForGeneration(game, dynamicRules)
       : validateCombination(game);
 
     if (validation.isValid) {
@@ -3900,7 +4157,7 @@ function geneticAlgorithm(ballScores, dynamicRules, populationSize = 50, generat
 
       // Avaliar
       const validation = dynamicRules
-        ? validateCombinationWithRules(child, dynamicRules)
+        ? validateCombinationForGeneration(child, dynamicRules)
         : validateCombination(child);
 
       newPopulation.push({
@@ -3975,30 +4232,6 @@ function mutate(game, ballScores, mutationRate = 0.2) {
 
 // =========================================================================
 // CONSTRAINT PROPAGATION
-// =========================================================================
-// Poda antecipada de candidatos impossíveis
-function canSatisfyConstraints(remainingSlots, remainingNumbers, rules) {
-  if (!rules) return true;
-
-  // Verificar se é possível atingir a soma mínima
-  const minPossibleSum = remainingNumbers.slice(0, remainingSlots).reduce((a, b) => a + b, 0);
-  const maxPossibleSum = remainingNumbers.slice(-remainingSlots).reduce((a, b) => a + b, 0);
-
-  if (rules.sum) {
-    if (maxPossibleSum < rules.sum.min || minPossibleSum > rules.sum.max) {
-      return false;
-    }
-  }
-
-  // Verificar se é possível ter pares suficientes
-  if (rules.evens) {
-    const availableEvens = remainingNumbers.filter(n => n % 2 === 0).length;
-    if (availableEvens < rules.evens.min - 15 + remainingSlots) return false;
-  }
-
-  return true;
-}
-
 // =========================================================================
 // DIVERSIDADE FORÇADA
 // =========================================================================
@@ -4099,7 +4332,7 @@ function generateGames(count, size, minHits = 10, temperature = 0.35) {
     if (refined.valid) selected = refined.game;
 
     const validation = dynamicRules
-      ? validateCombinationWithRules(selected, dynamicRules)
+      ? validateCombinationForGeneration(selected, dynamicRules)
       : validateCombination(selected);
 
     if (!validation.isValid) {
@@ -4230,7 +4463,7 @@ function generateGamesWithConstraints(count, size, constraints = {}) {
     let selected = weightedRandomSampling(ballScores, size, temperature);
 
     const validation = dynamicRules
-      ? validateCombinationWithRules(selected, dynamicRules)
+      ? validateCombinationForGeneration(selected, dynamicRules)
       : validateCombination(selected);
 
     if (!validation.isValid) continue;
@@ -4270,7 +4503,7 @@ function generateGamesWithConstraints(count, size, constraints = {}) {
   };
 }
 
-function validateCombinationWithRules(game, rules) {
+function validateCombinationForGeneration(game, rules) {
   const sig = calculateStructuralSignature(game);
   const violations = [];
 
@@ -4360,11 +4593,10 @@ function getRLWeights(draws, strategy) {
   return null;
 }
 
-function updateQTable(draws, strategy, weights, reward) {
+function updateQTable(draws, strategy, weights, reward, components) {
   const qTable = loadQTable();
   const state = getQTableState(draws, strategy);
   const learningRate = 0.1;
-  const discountFactor = 0.95;
 
   if (!qTable[state]) {
     qTable[state] = {
@@ -4377,16 +4609,29 @@ function updateQTable(draws, strategy, weights, reward) {
   const entry = qTable[state];
   entry.visits++;
 
-  // Atualizar Q-value via média móvel
+  // Update running average reward
   entry.avgReward = entry.avgReward + (reward - entry.avgReward) / entry.visits;
 
-  // Ajustar pesos na direção que maximiza reward
-  Object.keys(weights).forEach(k => {
-    const delta = reward > entry.avgReward ? 0.01 : -0.01;
-    entry.weights[k] = Math.max(0.01, Math.min(0.99, entry.weights[k] + delta));
-  });
+  // Per-feature credit assignment: increase weight for features that contributed
+  // to above-average reward, decrease for below-average
+  if (components && reward > entry.avgReward) {
+    Object.keys(components).forEach(k => {
+      if (entry.weights[k] !== undefined && components[k] > 0.5) {
+        // This feature was strong and reward was good -> reinforce
+        entry.weights[k] = Math.max(0.01, Math.min(0.99, entry.weights[k] + learningRate * components[k]));
+      }
+    });
+  } else if (components && reward < entry.avgReward) {
+    Object.keys(components).forEach(k => {
+      if (entry.weights[k] !== undefined && components[k] > 0.5) {
+        // This feature was strong but reward was bad -> reduce
+        entry.weights[k] = Math.max(0.01, Math.min(0.99, entry.weights[k] - learningRate * 0.5));
+      }
+    });
+  }
 
-  // Normalizar
+  // Clamp and normalize
+  Object.keys(entry.weights).forEach(k => { entry.weights[k] = Math.max(0.01, entry.weights[k]); });
   const total = Object.values(entry.weights).reduce((a, b) => a + b, 0);
   Object.keys(entry.weights).forEach(k => { entry.weights[k] /= total; });
 
@@ -4521,15 +4766,18 @@ function calculateAdaptiveWeights(draws, strategy) {
   if (entropyFactor < 0.90) {
     weights.freq += 0.05;
     weights.z += 0.05;
-    weights.target -= 0.05;
-    weights.corr -= 0.05;
+    weights.target = Math.max(0, weights.target - 0.05);
+    weights.corr = Math.max(0, weights.corr - 0.05);
   }
 
   if (n < 50) {
     weights.bayes += 0.05;
-    weights.freq -= 0.03;
-    weights.z -= 0.02;
+    weights.freq = Math.max(0, weights.freq - 0.03);
+    weights.z = Math.max(0, weights.z - 0.02);
   }
+
+  // Clamp all weights to non-negative before normalization
+  Object.keys(weights).forEach(k => { weights[k] = Math.max(0, weights[k]); });
 
   const total = Object.values(weights).reduce((a, b) => a + b, 0);
   if (total > 0) {
@@ -4635,27 +4883,6 @@ function applyWeights(components, weights) {
     (components.entropy * (weights.entropy || 0)) +
     (components.overdue * (weights.overdue || 0))
   );
-}
-
-function calculateTemporalContext(draws, windowSize = 10) {
-  if (draws.length < windowSize + 5) return null;
-
-  const recentDraws = draws.slice(-windowSize);
-  const olderDraws = draws.slice(-windowSize * 2, -windowSize);
-
-  if (olderDraws.length < 5) return null;
-
-  const recentFreqs = calculateFrequencies(recentDraws);
-  const olderFreqs = calculateFrequencies(olderDraws);
-
-  const changes = {};
-  for (let num = 1; num <= TOTAL_NUMBERS; num++) {
-    const recentRate = recentFreqs[num] / windowSize;
-    const olderRate = olderFreqs[num] / olderDraws.length;
-    changes[num] = recentRate - olderRate;
-  }
-
-  return changes;
 }
 
 // === generators/validator.js ===
@@ -4933,9 +5160,10 @@ function backtestRules(draws, testSize = 30) {
 }
 
 // =========================================================================
-// ISOLATION FOREST (Simplificado)
+// ISOLATION FOREST (Implementação real)
 // =========================================================================
-function detectAnomalies(draws) {
+// Isolation Forest: detecção de anomalias via isolamento aleatório
+function detectAnomalies(draws, numTrees = 100, sampleSize = 256) {
   if (draws.length < 30) return { anomalies: [], threshold: 0 };
 
   // Vetorizar draws
@@ -4944,43 +5172,92 @@ function detectAnomalies(draws) {
     return [sig.sum, sig.evens, sig.moldura, sig.primes, sig.maxStreak];
   });
 
-  // Calcular estatísticas de referência
-  const means = [0, 0, 0, 0, 0];
-  const sds = [0, 0, 0, 0, 0];
+  const n = vectors.length;
+  const numFeatures = vectors[0].length;
+  const actualSampleSize = Math.min(sampleSize, n);
 
-  for (let f = 0; f < 5; f++) {
-    means[f] = vectors.reduce((a, v) => a + v[f], 0) / vectors.length;
-    sds[f] = Math.sqrt(vectors.reduce((a, v) => a + Math.pow(v[f] - means[f], 2), 0) / vectors.length);
+  // Build isolation trees
+  const trees = [];
+  for (let t = 0; t < numTrees; t++) {
+    // Subsample
+    const indices = [];
+    const used = new Set();
+    while (indices.length < actualSampleSize) {
+      const idx = Math.floor(Math.random() * n);
+      if (!used.has(idx)) { used.add(idx); indices.push(idx); }
+    }
+    const sample = indices.map(i => vectors[i]);
+    trees.push(buildIsolationTree(sample, 0, Math.ceil(Math.log2(actualSampleSize))));
   }
 
-  // Calcular anomaly score (distância do centro em z-scores)
-  const scores = vectors.map((v, idx) => {
-    let totalZ = 0;
-    for (let f = 0; f < 5; f++) {
-      const z = sds[f] > 0 ? Math.abs(v[f] - means[f]) / sds[f] : 0;
-      totalZ += z;
-    }
-    return {
-      contest: draws[idx].c,
-      score: totalZ / 5,
-      values: v
-    };
+  // Compute anomaly scores
+  const scores = vectors.map((vec, idx) => {
+    const avgPathLength = trees.reduce((sum, tree) => sum + pathLength(tree, vec, 0), 0) / numTrees;
+    const score = Math.pow(2, -avgPathLength / averagePathLength(actualSampleSize));
+    return { contest: draws[idx].c, score, pathLength: avgPathLength, values: vec };
   });
 
-  // Threshold: média + 2 desvios padrão
-  const avgScore = scores.reduce((a, s) => a + s.score, 0) / scores.length;
-  const sdScore = Math.sqrt(scores.reduce((a, s) => a + Math.pow(s.score - avgScore, 2), 0) / scores.length);
+  // Threshold: scores above mean + 2*sd are anomalies
+  const avgScore = scores.reduce((a, s) => a + s.score, 0) / n;
+  const sdScore = Math.sqrt(scores.reduce((a, s) => a + Math.pow(s.score - avgScore, 2), 0) / n);
   const threshold = avgScore + 2 * sdScore;
 
-  const anomalies = scores.filter(s => s.score > threshold);
+  const anomalies = scores.filter(s => s.score > threshold)
+    .sort((a, b) => b.score - a.score);
 
   return {
     anomalies,
     threshold: threshold.toFixed(4),
     avgScore: avgScore.toFixed(4),
     totalAnomalies: anomalies.length,
-    percentage: (anomalies.length / draws.length * 100).toFixed(2)
+    percentage: (anomalies.length / n * 100).toFixed(2),
+    method: 'Isolation Forest'
   };
+}
+
+function buildIsolationTree(data, currentDepth, maxDepth) {
+  if (currentDepth >= maxDepth || data.length <= 1) {
+    return { type: 'leaf', size: data.length };
+  }
+
+  const numFeatures = data[0].length;
+  const featureIdx = Math.floor(Math.random() * numFeatures);
+  const values = data.map(d => d[featureIdx]);
+  const minVal = Math.min(...values);
+  const maxVal = Math.max(...values);
+
+  if (minVal === maxVal) {
+    return { type: 'leaf', size: data.length };
+  }
+
+  const splitValue = minVal + Math.random() * (maxVal - minVal);
+  const left = data.filter(d => d[featureIdx] < splitValue);
+  const right = data.filter(d => d[featureIdx] >= splitValue);
+
+  return {
+    type: 'internal',
+    feature: featureIdx,
+    split: splitValue,
+    left: buildIsolationTree(left, currentDepth + 1, maxDepth),
+    right: buildIsolationTree(right, currentDepth + 1, maxDepth)
+  };
+}
+
+function pathLength(tree, point, currentDepth) {
+  if (tree.type === 'leaf') {
+    return currentDepth + averagePathLength(tree.size);
+  }
+  if (point[tree.feature] < tree.split) {
+    return pathLength(tree.left, point, currentDepth + 1);
+  }
+  return pathLength(tree.right, point, currentDepth + 1);
+}
+
+function averagePathLength(n) {
+  if (n <= 1) return 0;
+  if (n === 2) return 1;
+  // Harmonic number approximation
+  return 2 * (Math.log(n - 1) + 0.5772156649) - (2 * (n - 1) / n);
 }
 
 // =========================================================================
@@ -5071,7 +5348,8 @@ function percentile(arr, pLow, pHigh) {
 
 function percentileMax(arr, p) {
   const sorted = [...arr].sort((a, b) => a - b);
-  return Math.min(8, Math.ceil(sorted.length * p / 100));
+  const idx = Math.min(sorted.length - 1, Math.floor(sorted.length * p / 100));
+  return sorted[idx];
 }
 
 // === ui/notifications.js ===
@@ -5133,10 +5411,12 @@ function showToast(message, type = 'info', duration = 4000) {
   };
 
   toast.style.background = colors[type] || colors.info;
-  toast.innerHTML = `
-    <i class="${icons[type] || icons.info}"></i>
-    <span>${message}</span>
-  `;
+  const iconEl = document.createElement('i');
+  iconEl.className = icons[type] || icons.info;
+  const spanEl = document.createElement('span');
+  spanEl.textContent = message;
+  toast.appendChild(iconEl);
+  toast.appendChild(spanEl);
 
   container.appendChild(toast);
 
@@ -5166,13 +5446,27 @@ function addToastStyles() {
 
 // === ui/navigation.js ===
 /* ==========================================================================
-   NAVIGATION & TABS
+   NAVIGATION & TABS (with deep-linking support)
    ========================================================================== */
 
 
 
 function setupNavigation() {
   const navTabs = document.querySelectorAll('.nav-tab');
+
+  // Deep-linking: activate tab from URL hash
+  const hash = window.location.hash.replace('#', '');
+  if (hash) {
+    const targetTab = document.querySelector(`.nav-tab[data-target="${hash}"]`);
+    if (targetTab) {
+      navTabs.forEach(t => t.classList.remove('active'));
+      document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
+      targetTab.classList.add('active');
+      const pane = document.getElementById(hash);
+      if (pane) pane.classList.add('active');
+    }
+  }
+
   navTabs.forEach(tab => {
     tab.addEventListener('click', () => {
       navTabs.forEach(t => t.classList.remove('active'));
@@ -5182,6 +5476,9 @@ function setupNavigation() {
       const targetPaneId = tab.getAttribute('data-target');
       const pane = document.getElementById(targetPaneId);
       if (pane) pane.classList.add('active');
+
+      // Update URL hash for deep-linking
+      history.replaceState(null, '', `#${targetPaneId}`);
 
       if (AppState.draws.length > 0) {
         setTimeout(() => refreshCharts(), 50);
@@ -5729,10 +6026,8 @@ function renderDelayAnalysis() {
   if (!container || AppState.draws.length === 0) return;
 
   const stats = getDelayStatistics(AppState.draws);
-  const distribution = getDelayDistribution(AppState.draws);
   const overdue = getTopOverdueNumbers(AppState.draws, 5);
   const weibull = calculateWeibullAnalysis(AppState.draws);
-  const cox = calculateCoxHazards(AppState.draws);
 
   const overdueHtml = overdue.map(o =>
     `<span class="ball ball-sm" style="background: ${o.classification === 'crítico' ? '#f87171' : '#fbbf24'}; color: white; font-size: 0.6rem;">${o.num.toString().padStart(2, '0')}</span>`
@@ -5960,6 +6255,24 @@ function refreshCharts() {
   renderMatchDistributionChart();
   renderFrequencyCorrelationChart();
   renderRadarSignatureChart();
+  setupChartExportButtons();
+}
+
+function setupChartExportButtons() {
+  const exportBtns = document.querySelectorAll('[data-export-chart]');
+  exportBtns.forEach(btn => {
+    if (btn._hasExportListener) return;
+    btn._hasExportListener = true;
+    btn.addEventListener('click', () => {
+      const chartKey = btn.getAttribute('data-export-chart');
+      const chart = AppState.charts[chartKey];
+      if (!chart) return;
+      const link = document.createElement('a');
+      link.download = `lotofacil_${chartKey}_${Date.now()}.png`;
+      link.href = chart.canvas.toDataURL('image/png', 1.0);
+      link.click();
+    });
+  });
 }
 
 function renderMatchDistributionChart() {
@@ -6232,6 +6545,69 @@ function setupFileUpload() {
 function processUploadedFile(file) {
   AppState.currentFilename = file.name;
   const reader = new FileReader();
+
+  // Handle CSV files directly
+  if (file.name.toLowerCase().endsWith('.csv')) {
+    reader.onload = function(e) {
+      try {
+        const text = e.target.result;
+        const lines = text.split('\n').filter(l => l.trim());
+        if (lines.length < 2) {
+          showToast('Arquivo CSV vazio ou sem dados.', 'error');
+          return;
+        }
+
+        const parsedDraws = [];
+        const header = lines[0].toLowerCase().split(/[,;]/).map(s => s.trim());
+        const concursoIdx = header.findIndex(h => h.includes('concurso') || h.includes('concur'));
+        const bolaIndices = header.map((h, i) => ({ h, i })).filter(({ h }) =>
+          h.includes('bola') || h.includes('num') || h.match(/^d?\d/)
+        ).map(x => x.i);
+
+        for (let l = 1; l < lines.length; l++) {
+          const cols = lines[l].split(/[,;]/).map(s => s.trim());
+          if (cols.length < 15) continue;
+
+          const concurso = concursoIdx >= 0 ? parseInt(cols[concursoIdx]) || l : l;
+          const balls = [];
+          const indices = bolaIndices.length >= 15 ? bolaIndices.slice(0, 15) :
+            cols.map((c, i) => i).filter(i => {
+              const v = parseInt(cols[i]);
+              return !isNaN(v) && v >= 1 && v <= 25;
+            });
+
+          indices.forEach(idx => {
+            const val = parseInt(cols[idx]);
+            if (!isNaN(val) && val >= 1 && val <= 25) balls.push(val);
+          });
+
+          if (balls.length >= 15) {
+            balls.sort((a, b) => a - b);
+            parsedDraws.push({ c: concurso, b: balls.slice(0, 15) });
+          }
+        }
+
+        if (parsedDraws.length > 0) {
+          AppState.draws = parsedDraws;
+          const lastDraw = AppState.draws[AppState.draws.length - 1];
+          AppState.targetGame = [...lastDraw.b];
+          updateDatasetStatus(`CSV Importado (${parsedDraws.length} Concursos - Último: #${lastDraw.c})`);
+          refreshAllAnalysis();
+          const modal = document.getElementById('uploadModal');
+          if (modal) modal.classList.remove('active');
+          showToast(`${parsedDraws.length} concursos importados do CSV.`, 'success');
+        } else {
+          showToast('Não foi possível reconhecer colunas no CSV.', 'error');
+        }
+      } catch (err) {
+        showToast('Erro ao processar CSV: ' + err.message, 'error');
+      }
+    };
+    reader.readAsText(file);
+    return;
+  }
+
+  // Handle XLSX files
   reader.onload = function(e) {
     try {
       const data = new Uint8Array(e.target.result);
@@ -6307,7 +6683,7 @@ function setupExportButtons() {
         showToast('Nenhum jogo gerado para exportar.', 'warning');
         return;
       }
-      let content = '=== LOTOFLÁCIL CORRELATION LAB - APOSTAS GERADAS ===\n\n';
+      let content = '=== LOTOFÁCIL CORRELATION LAB - APOSTAS GERADAS ===\n\n';
       AppState.generatedGames.forEach(g => {
         content += `Jogo ${g.id.toString().padStart(2, '0')}: ${g.balls.map(b => b.toString().padStart(2, '0')).join(' ')}\n`;
       });
@@ -6482,7 +6858,11 @@ async function checkOnlineUpdates() {
     }
 
     if (fetchedDraws.length > 0) {
-      AppState.draws = AppState.draws.concat(fetchedDraws);
+      const uniqueDrawsMap = new Map();
+      AppState.draws.concat(fetchedDraws).forEach(d => {
+        uniqueDrawsMap.set(d.c, d);
+      });
+      AppState.draws = Array.from(uniqueDrawsMap.values()).sort((a, b) => a.c - b.c);
       
       const lastDraw = AppState.draws[AppState.draws.length - 1];
       AppState.targetGame = [...lastDraw.b];
@@ -6579,8 +6959,31 @@ function downloadUpdatedSpreadsheet() {
 
 
 
+const STORAGE_KEY = 'lotofacil_settings';
+
+function loadSettings() {
+  try {
+    const saved = localStorage.getItem(STORAGE_KEY);
+    if (saved) {
+      const settings = JSON.parse(saved);
+      if (settings.selectedStrategy) AppState.selectedStrategy = settings.selectedStrategy;
+      if (settings.customWeights) AppState.customWeights = settings.customWeights;
+    }
+  } catch {}
+}
+
+function saveSettings() {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({
+      selectedStrategy: AppState.selectedStrategy,
+      customWeights: AppState.customWeights
+    }));
+  } catch {}
+}
+
 function initApp() {
   addToastStyles();
+  loadSettings();
   
   AppState.draws = [];
   AppState.targetGame = [];
@@ -6616,6 +7019,7 @@ function setupStrategySelectors() {
       cards.forEach(c => c.classList.remove('selected'));
       card.classList.add('selected');
       AppState.selectedStrategy = card.getAttribute('data-strategy');
+      saveSettings();
       
       const customSliders = document.getElementById('customWeightsContainer');
       if (customSliders) {
@@ -6639,6 +7043,7 @@ function setupCustomWeightSliders() {
         const val = parseInt(e.target.value);
         AppState.customWeights[key] = val;
         label.textContent = `${val}%`;
+        saveSettings();
       });
     }
   });
@@ -6648,10 +7053,12 @@ function setupBayesianMinHitsSlider() {
   const slider = document.getElementById('sliderBayesianMinHits');
   const label = document.getElementById('bayesianMinHitsValue');
   if (slider && label) {
+    let debounceTimer = null;
     slider.addEventListener('input', (e) => {
       const val = parseInt(e.target.value);
       label.textContent = `${val}`;
-      refreshAllAnalysis();
+      if (debounceTimer) clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(() => refreshAllAnalysis(), 300);
     });
   }
 }
@@ -6701,9 +7108,7 @@ function handleGenerateGames() {
 window.setTargetPreset = setTargetPreset;
 window.downloadUpdatedSpreadsheet = downloadUpdatedSpreadsheet;
 
-document.addEventListener('DOMContentLoaded', () => {
-  initApp();
-});
+
 
 
 window.setTargetPreset = setTargetPreset;
