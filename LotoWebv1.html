@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+  <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
@@ -1533,7 +1533,6 @@ window.LOTOFACIL_PRELOADED_DATA = [{"c": 1, "b": [2, 3, 5, 6, 9, 10, 11, 13, 14,
   </script>
   <script>
 (function() {
-
 // === state.js ===
 /* ==========================================================================
    GLOBAL STATE & CONSTANTS
@@ -1618,12 +1617,10 @@ const PRIZE_VALUES = {
   14: 1500.00,
   15: 1700000.00
 };
-
 // === analyzers/cache.js ===
 /* ==========================================================================
    METRICS CACHE - Evita recálculos redundantes
    ========================================================================== */
-
 
 function getCacheKey(draws, targetGame) {
   return `${draws.length}_${targetGame.join(',')}`;
@@ -1650,7 +1647,6 @@ function setCacheValid() {
   AppState.metricsCache.lastDrawsLength = AppState.draws.length;
   AppState.metricsCache.lastTargetGameKey = getCacheKey(AppState.draws, AppState.targetGame);
 }
-
 // === analyzers/cooccurrence.js ===
 /* ==========================================================================
    CO-OCCURRENCE MATRIX ANALYZER V2 - Completo
@@ -1661,8 +1657,6 @@ function setCacheValid() {
    - Análise temporal com janelas deslizantes
    - Redes de co-ocorrência (grafos)
    ========================================================================== */
-
-
 
 const TOTAL_NUMBERS = 25;
 const DRAW_SIZE = 15;
@@ -1777,14 +1771,16 @@ function calculateCoOccurrenceMatrix(draws) {
     confidence[i] = new Array(TOTAL_NUMBERS + 1).fill(0);
   }
 
-  // Contagem de co-ocorrência (SEM divisão por 2)
+  // Contagem de co-ocorrência — apenas pares i < j (C(15,2)=105 por draw)
+  const PAIRS_PER_DRAW = (DRAW_SIZE * (DRAW_SIZE - 1)) / 2; // 105
+  const totalPairsDraw = draws.length * PAIRS_PER_DRAW;
+
   draws.forEach(d => {
     const balls = d.b;
     for (let i = 0; i < balls.length; i++) {
-      for (let j = 0; j < balls.length; j++) {
-        if (i !== j) {
-          raw[balls[i]][balls[j]]++;
-        }
+      for (let j = i + 1; j < balls.length; j++) {
+        raw[balls[i]][balls[j]]++;
+        raw[balls[j]][balls[i]]++;
       }
     }
   });
@@ -1811,13 +1807,13 @@ function calculateCoOccurrenceMatrix(draws) {
 
       const pA = freqs[i] / totalDraws;
       const pB = freqs[j] / totalDraws;
-      const pAB = raw[i][j] / totalDraws;
+      const pAB = raw[i][j] / totalPairsDraw;
 
       // P(A|B) — probabilidade condicional
       conditional[i][j] = pB > 0 ? pAB / pB : 0;
 
-      // Lift = P(A|B) / P(A)
-      lift[i][j] = pA > 0 ? conditional[i][j] / pA : 0;
+      // Lift = P(A,B) / (P(A) * P(B))
+      lift[i][j] = (pA > 0 && pB > 0) ? pAB / (pA * pB) : 0;
 
       // PMI e NPMI
       pmi[i][j] = calculatePMI(pAB, pA, pB);
@@ -1873,7 +1869,7 @@ function calculateCoOccurrenceMatrix(draws) {
   }
 
   // Rede de co-ocorrência (top pares por lift significativo)
-  const network = buildCoOccurrenceNetwork(raw, freqs, totalDraws, 1.1, 0.05);
+  const network = buildCoOccurrenceNetwork(raw, freqs, totalDraws, 1.05, 0.05);
 
   const result = {
     raw,
@@ -1900,67 +1896,68 @@ function calculateCoOccurrenceMatrix(draws) {
 function calcLiftForPair(i, j, draws) {
   const freqsLocal = {};
   const coLocal = {};
+  const PAIRS_PER_DRAW = (DRAW_SIZE * (DRAW_SIZE - 1)) / 2;
   draws.forEach(d => {
     d.b.forEach(n => { freqsLocal[n] = (freqsLocal[n] || 0) + 1; });
     for (let a = 0; a < d.b.length; a++) {
-      for (let b = 0; b < d.b.length; b++) {
-        if (a !== b) {
-          const key = `${d.b[a]},${d.b[b]}`;
-          coLocal[key] = (coLocal[key] || 0) + 1;
-        }
+      for (let b = a + 1; b < d.b.length; b++) {
+        const key = `${d.b[a]},${d.b[b]}`;
+        coLocal[key] = (coLocal[key] || 0) + 1;
       }
     }
   });
 
+  const totalPairsDraw = draws.length * PAIRS_PER_DRAW;
   const pA = (freqsLocal[i] || 0) / draws.length;
   const pB = (freqsLocal[j] || 0) / draws.length;
-  const pAB = (coLocal[`${i},${j}`] || 0) / draws.length / 2;
-  const pAB_B = pB > 0 ? pAB / pB : 0;
-  return pA > 0 ? pAB_B / pA : 0;
+  const pAB = (coLocal[`${Math.min(i,j)},${Math.max(i,j)}`] || 0) / totalPairsDraw;
+  return (pA > 0 && pB > 0) ? pAB / (pA * pB) : 0;
 }
 
 function calcPMIForPair(i, j, draws) {
   const freqsLocal = {};
   const coLocal = {};
+  const PAIRS_PER_DRAW = (DRAW_SIZE * (DRAW_SIZE - 1)) / 2;
   draws.forEach(d => {
     d.b.forEach(n => { freqsLocal[n] = (freqsLocal[n] || 0) + 1; });
     for (let a = 0; a < d.b.length; a++) {
-      for (let b = 0; b < d.b.length; b++) {
-        if (a !== b) {
-          const key = `${d.b[a]},${d.b[b]}`;
-          coLocal[key] = (coLocal[key] || 0) + 1;
-        }
+      for (let b = a + 1; b < d.b.length; b++) {
+        const key = `${d.b[a]},${d.b[b]}`;
+        coLocal[key] = (coLocal[key] || 0) + 1;
       }
     }
   });
 
+  const totalPairsDraw = draws.length * PAIRS_PER_DRAW;
   const pA = (freqsLocal[i] || 0) / draws.length;
   const pB = (freqsLocal[j] || 0) / draws.length;
-  const pAB = (coLocal[`${i},${j}`] || 0) / draws.length / 2;
+  const pAB = (coLocal[`${Math.min(i,j)},${Math.max(i,j)}`] || 0) / totalPairsDraw;
   return calculatePMI(pAB, pA, pB);
 }
 
 // Constrói rede de co-ocorrência (grafo) com PageRank e centralidade
 function buildCoOccurrenceNetwork(raw, freqs, totalDraws, minLift, maxPValue) {
   const edges = [];
+  const PAIRS_PER_DRAW = (DRAW_SIZE * (DRAW_SIZE - 1)) / 2;
+  const totalPairsDraw = totalDraws * PAIRS_PER_DRAW;
 
   for (let i = 1; i <= TOTAL_NUMBERS; i++) {
     for (let j = i + 1; j <= TOTAL_NUMBERS; j++) {
       const pA = freqs[i] / totalDraws;
       const pB = freqs[j] / totalDraws;
-      const pAB = raw[i][j] / totalDraws;
+      const pAB = raw[i][j] / totalPairsDraw;
 
-      const l = pA > 0 ? (pB > 0 ? (pAB / pB) / pA : 0) : 0;
+      const l = (pA > 0 && pB > 0) ? pAB / (pA * pB) : 0;
       const pmiVal = calculatePMI(pAB, pA, pB);
 
-      if (l >= minLift && freqs[i] >= 5 && freqs[j] >= 5) {
+      if (l >= minLift && freqs[i] >= 3 && freqs[j] >= 3) {
         edges.push({ a: i, b: j, lift: l, pmi: pmiVal, weight: l });
       }
     }
   }
 
   edges.sort((a, b) => b.lift - a.lift);
-  const topEdges = edges.slice(0, 50);
+  const topEdges = edges.slice(0, 80);
 
   // Compute PageRank on the network
   const pageRank = computePageRank(topEdges, TOTAL_NUMBERS);
@@ -2129,8 +2126,6 @@ function getSignificantPairs(coOccurrenceData, maxPValue = 0.05, minLift = 1.1) 
    - Runs de ordem superior
    - Números hot/cold com tendência
    ========================================================================== */
-
-
 
 const PROB = DRAW_SIZE / TOTAL_NUMBERS;
 
@@ -2641,8 +2636,6 @@ function getHotColdNumbers(draws, topN = 5) {
    - Distribuição e tendências
    ========================================================================== */
 
-
-
 const EXPECTED_DELAY = TOTAL_NUMBERS / DRAW_SIZE;
 
 function calculateDelays(draws) {
@@ -3098,17 +3091,6 @@ function normalCDF(x) {
 const GAME_SIZE = 15;
 const COST_PER_GAME = 3.00;
 
-function binomial(n, k) {
-  if (k < 0 || k > n) return 0;
-  if (k === 0 || k === n) return 1;
-  if (k > n - k) k = n - k;
-  let result = 1;
-  for (let i = 0; i < k; i++) {
-    result = result * (n - i) / (i + 1);
-  }
-  return result;
-}
-
 function hypergeometricPMF(k, N = TOTAL_NUMBERS, K = DRAW_SIZE, n = GAME_SIZE) {
   return binomial(K, k) * binomial(N - K, n - k) / binomial(N, n);
 }
@@ -3344,7 +3326,6 @@ function calculateVariance(game, draws) {
    - Clusterização K-means
    - Assinatura média do dataset
    ========================================================================== */
-
 
 function calculateStructuralSignature(game) {
   const set = new Set(game);
@@ -3692,23 +3673,42 @@ function calculateMahalanobisDistance(game, draws) {
     return [sig.sum, sig.evens, sig.moldura, sig.primes, sig.maxStreak];
   });
 
-  const means = [0, 0, 0, 0, 0];
-  for (let f = 0; f < 5; f++) {
-    means[f] = drawSigs.reduce((a, v) => a + v[f], 0) / drawSigs.length;
+  const n = drawSigs.length;
+  const dim = 5;
+
+  const means = new Array(dim).fill(0);
+  for (let f = 0; f < dim; f++) {
+    means[f] = drawSigs.reduce((a, v) => a + v[f], 0) / n;
   }
 
-  const variances = [0, 0, 0, 0, 0];
-  for (let f = 0; f < 5; f++) {
-    variances[f] = drawSigs.reduce((a, v) => a + Math.pow(v[f] - means[f], 2), 0) / drawSigs.length;
+  const cov = Array.from({ length: dim }, () => new Array(dim).fill(0));
+  for (let i = 0; i < dim; i++) {
+    for (let j = 0; j < dim; j++) {
+      cov[i][j] = drawSigs.reduce((a, v) => a + (v[i] - means[i]) * (v[j] - means[j]), 0) / n;
+    }
+  }
+
+  const lambda = 0.01;
+  for (let i = 0; i < dim; i++) cov[i][i] += lambda;
+
+  const inv = invertCovMatrix(cov, dim);
+  if (!inv) {
+    let dist = 0;
+    for (let f = 0; f < dim; f++) {
+      const v = cov[f][f] - lambda;
+      if (v > 0) dist += Math.pow(features[f] - means[f], 2) / v;
+    }
+    const d = Math.sqrt(dist);
+    return { distance: d.toFixed(4), isOutlier: d > 3.33, threshold: 3.33, features: {} };
   }
 
   let distance = 0;
-  for (let f = 0; f < 5; f++) {
-    if (variances[f] > 0) {
-      distance += Math.pow(features[f] - means[f], 2) / variances[f];
+  for (let i = 0; i < dim; i++) {
+    for (let j = 0; j < dim; j++) {
+      distance += (features[i] - means[i]) * inv[i][j] * (features[j] - means[j]);
     }
   }
-  distance = Math.sqrt(distance);
+  distance = Math.sqrt(Math.max(0, distance));
 
   const threshold = 3.33;
 
@@ -3717,13 +3717,33 @@ function calculateMahalanobisDistance(game, draws) {
     isOutlier: distance > threshold,
     threshold,
     features: {
-      sum: { value: features[0], mean: means[0].toFixed(1) },
-      evens: { value: features[1], mean: means[1].toFixed(1) },
-      moldura: { value: features[2], mean: means[2].toFixed(1) },
-      primes: { value: features[3], mean: means[3].toFixed(1) },
-      maxStreak: { value: features[4], mean: means[4].toFixed(1) }
+      sum: { value: features[0], mean: means[0].toFixed(1), sd: Math.sqrt(cov[0][0] - lambda).toFixed(1) },
+      evens: { value: features[1], mean: means[1].toFixed(1), sd: Math.sqrt(cov[1][1] - lambda).toFixed(1) },
+      moldura: { value: features[2], mean: means[2].toFixed(1), sd: Math.sqrt(cov[2][2] - lambda).toFixed(1) },
+      primes: { value: features[3], mean: means[3].toFixed(1), sd: Math.sqrt(cov[3][3] - lambda).toFixed(1) },
+      maxStreak: { value: features[4], mean: means[4].toFixed(1), sd: Math.sqrt(cov[4][4] - lambda).toFixed(1) }
     }
   };
+}
+
+function invertCovMatrix(mat, n) {
+  const aug = mat.map((row, i) => [...row, ...Array(n).fill(0).map((_, j) => i === j ? 1 : 0)]);
+  for (let col = 0; col < n; col++) {
+    let maxRow = col;
+    for (let row = col + 1; row < n; row++) {
+      if (Math.abs(aug[row][col]) > Math.abs(aug[maxRow][col])) maxRow = row;
+    }
+    [aug[col], aug[maxRow]] = [aug[maxRow], aug[col]];
+    if (Math.abs(aug[col][col]) < 1e-12) return null;
+    const pivot = aug[col][col];
+    for (let j = 0; j < 2 * n; j++) aug[col][j] /= pivot;
+    for (let row = 0; row < n; row++) {
+      if (row === col) continue;
+      const factor = aug[row][col];
+      for (let j = 0; j < 2 * n; j++) aug[row][j] -= factor * aug[col][j];
+    }
+  }
+  return aug.map(row => row.slice(n));
 }
 
 // === analyzers/bayesian.js ===
@@ -3736,20 +3756,7 @@ function calculateMahalanobisDistance(game, draws) {
    - Bayesian Model Averaging
    ========================================================================== */
 
-
-
-
-
 const ALPHA = 1;
-
-function wilsonCI(successes, total, z = 1.96) {
-  if (total === 0) return { low: 0, high: 0 };
-  const p = successes / total;
-  const denom = 1 + (z * z) / total;
-  const centre = (p + (z * z) / (2 * total)) / denom;
-  const spread = (z / denom) * Math.sqrt((p * (1 - p)) / total + (z * z) / (4 * total * total));
-  return { low: Math.max(0, centre - spread), high: Math.min(1, centre + spread) };
-}
 
 function calculateDynamicPrior(draws, windowSize = 30) {
   const recentDraws = draws.slice(-windowSize);
@@ -3964,10 +3971,6 @@ function calculateBayesianTransitionsLegacy(targetGame, draws, minHits = 10) {
    - Multi-start optimization
    ========================================================================== */
 
-
-
-
-
 // =========================================================================
 // WEIGHTED RANDOM SAMPLING
 // =========================================================================
@@ -4019,19 +4022,44 @@ function weightedRandomSampling(ballScores, size, temperature = 0.35) {
   return selected.sort((a, b) => a - b);
 }
 
-function evaluateGame(game, ballScores) {
-  let score = 0;
-  game.forEach(n => { score += ballScores[n] || 0; });
-  return score;
+function evaluateGame(game, ballScores, coOccurrenceData) {
+  let individualScore = 0;
+  game.forEach(n => { individualScore += ballScores[n] || 0; });
+
+  let coOccScore = 0;
+  if (coOccurrenceData && coOccurrenceData.raw) {
+    let pairCount = 0;
+    for (let i = 0; i < game.length; i++) {
+      for (let j = i + 1; j < game.length; j++) {
+        coOccScore += coOccurrenceData.lift[game[i]]?.[game[j]] || 1;
+        pairCount++;
+      }
+    }
+    if (pairCount > 0) coOccScore /= pairCount;
+  }
+
+  return individualScore * 0.65 + coOccScore * 0.35;
+}
+
+// =========================================================================
+// ADAPTIVE TEMPERATURE
+// =========================================================================
+function computeAdaptiveTemperature(ballScores) {
+  const scores = Object.values(ballScores);
+  const mean = scores.reduce((a, b) => a + b, 0) / scores.length;
+  const variance = scores.reduce((a, s) => a + Math.pow(s - mean, 2), 0) / scores.length;
+  const cv = mean > 0 ? Math.sqrt(variance) / mean : 0;
+
+  return Math.max(0.15, Math.min(0.6, 0.5 - cv * 0.8));
 }
 
 // =========================================================================
 // SIMULATED ANNEALING ADAPTATIVO
 // =========================================================================
 // Com reheating quando estagnado
-function simulatedAnnealingAdaptive(game, ballScores, dynamicRules, tempStart = 0.5, maxIter = 300) {
+function simulatedAnnealingAdaptive(game, ballScores, dynamicRules, coOccurrenceData, tempStart = 0.5, maxIter = 300, excludeGames = []) {
   let current = [...game];
-  let currentScore = evaluateGame(current, ballScores);
+  let currentScore = evaluateGame(current, ballScores, coOccurrenceData) + diversityPenalty(current, excludeGames);
   let currentValid = dynamicRules
     ? validateCombinationForGeneration(current, dynamicRules).isValid
     : validateCombination(current).isValid;
@@ -4045,25 +4073,49 @@ function simulatedAnnealingAdaptive(game, ballScores, dynamicRules, tempStart = 
   const reheatingThreshold = 50;
 
   for (let iter = 0; iter < maxIter; iter++) {
-    // Gerar vizinho: trocar 1-3 bolas (mais bolas quando estagnado)
     const neighbor = [...current];
     const numSwaps = stagnationCount > 20 ? 3 : stagnationCount > 10 ? 2 : 1;
 
     for (let s = 0; s < numSwaps; s++) {
       const removeIdx = Math.floor(Math.random() * neighbor.length);
-      const removed = neighbor[removeIdx];
+
       const availableNums = [];
       for (let n = 1; n <= 25; n++) {
-        if (!neighbor.includes(n)) availableNums.push(n);
+        if (!neighbor.includes(n)) {
+          availableNums.push({ num: n, score: ballScores[n] || 0 });
+        }
       }
       if (availableNums.length === 0) break;
-      const addNum = availableNums[Math.floor(Math.random() * availableNums.length)];
+
+      // Penalizar números que aparecem demais nos jogos já gerados
+      // (força afastamento quando há jogos existentes)
+      availableNums.forEach(cand => {
+        let density = 0;
+        for (const eg of excludeGames) {
+          if (eg.includes(cand.num)) density++;
+        }
+        if (density > 0) cand.score *= 0.7;
+      });
+
+      availableNums.sort((a, b) => b.score - a.score);
+
+      let addNum;
+      const roll = Math.random();
+      if (roll < 0.70) {
+        addNum = availableNums[0].num;
+      } else if (roll < 0.90) {
+        const topHalf = availableNums.slice(0, Math.ceil(availableNums.length / 2));
+        addNum = topHalf[Math.floor(Math.random() * topHalf.length)].num;
+      } else {
+        addNum = availableNums[Math.floor(Math.random() * availableNums.length)].num;
+      }
+
       neighbor[removeIdx] = addNum;
     }
 
     neighbor.sort((a, b) => a - b);
 
-    const neighborScore = evaluateGame(neighbor, ballScores);
+    const neighborScore = evaluateGame(neighbor, ballScores, coOccurrenceData) + diversityPenalty(neighbor, excludeGames);
     const neighborValid = dynamicRules
       ? validateCombinationForGeneration(neighbor, dynamicRules).isValid
       : validateCombination(neighbor).isValid;
@@ -4088,9 +4140,8 @@ function simulatedAnnealingAdaptive(game, ballScores, dynamicRules, tempStart = 
       stagnationCount++;
     }
 
-    // Reheating quando estagnado
     if (stagnationCount >= reheatingThreshold) {
-      temp = tempStart * 0.8; // reaquecer para 80% do inicial
+      temp = tempStart * 0.8;
       stagnationCount = 0;
     } else {
       temp *= coolingRate;
@@ -4100,11 +4151,24 @@ function simulatedAnnealingAdaptive(game, ballScores, dynamicRules, tempStart = 
   return { game: best, score: bestScore, valid: validateCombination(best).isValid };
 }
 
+// Penalidade de similaridade: reduz score se o jogo for muito parecido com os já gerados
+function diversityPenalty(game, excludeGames) {
+  if (!excludeGames || excludeGames.length === 0) return 0;
+  let maxSim = 0;
+  for (const eg of excludeGames) {
+    const sim = jaccardDistance(game, eg);
+    const s = parseFloat(sim.similarity);
+    if (s > maxSim) maxSim = s;
+  }
+  // Se compartilha > 65% dos números com um jogo existente, penaliza
+  if (maxSim > 0.65) return -(maxSim - 0.65) * 10;
+  return 0;
+}
+
 // =========================================================================
 // GENETIC ALGORITHM
 // =========================================================================
-function geneticAlgorithm(ballScores, dynamicRules, populationSize = 50, generations = 30, size = 15) {
-  // Inicializar população
+function geneticAlgorithm(ballScores, dynamicRules, coOccurrenceData, populationSize = 50, generations = 30, size = 15, excludeGames = []) {
   let population = [];
   for (let i = 0; i < populationSize; i++) {
     const game = weightedRandomSampling(ballScores, size, 0.5);
@@ -4115,54 +4179,46 @@ function geneticAlgorithm(ballScores, dynamicRules, populationSize = 50, generat
     if (validation.isValid) {
       population.push({
         game,
-        fitness: evaluateGame(game, ballScores),
+        fitness: evaluateGame(game, ballScores, coOccurrenceData) + diversityPenalty(game, excludeGames),
         signature: validation.signature
       });
     }
   }
 
   if (population.length === 0) {
-    // Fallback: gerar pelo menos alguns indivíduos
     for (let i = 0; i < Math.min(10, populationSize); i++) {
       const game = weightedRandomSampling(ballScores, size, 0.5);
       population.push({
         game,
-        fitness: evaluateGame(game, ballScores),
+        fitness: evaluateGame(game, ballScores, coOccurrenceData) + diversityPenalty(game, excludeGames),
         signature: calculateStructuralSignature(game)
       });
     }
   }
 
   for (let gen = 0; gen < generations; gen++) {
-    // Ordenar por fitness
     population.sort((a, b) => b.fitness - a.fitness);
 
-    // Elitismo: manter top 20%
     const eliteCount = Math.max(2, Math.floor(populationSize * 0.2));
     const newPopulation = population.slice(0, eliteCount);
 
-    // Seleção por torneio + crossover + mutação
     while (newPopulation.length < populationSize) {
-      // Torneio
       const parent1 = tournamentSelect(population);
       const parent2 = tournamentSelect(population);
 
-      // Crossover
       let child = crossover(parent1.game, parent2.game);
 
-      // Mutação
       if (Math.random() < 0.3) {
         child = mutate(child, ballScores);
       }
 
-      // Avaliar
       const validation = dynamicRules
         ? validateCombinationForGeneration(child, dynamicRules)
         : validateCombination(child);
 
       newPopulation.push({
         game: child,
-        fitness: evaluateGame(child, ballScores),
+        fitness: evaluateGame(child, ballScores, coOccurrenceData) + diversityPenalty(child, excludeGames),
         signature: validation.signature || calculateStructuralSignature(child)
       });
     }
@@ -4170,7 +4226,6 @@ function geneticAlgorithm(ballScores, dynamicRules, populationSize = 50, generat
     population = newPopulation;
   }
 
-  // Retornar melhor indivíduo
   population.sort((a, b) => b.fitness - a.fitness);
   return population[0] || null;
 }
@@ -4190,7 +4245,6 @@ function crossover(parent1, parent2) {
   const child = [];
   const used = new Set();
 
-  // Pegar metade de cada pai
   const half = Math.floor(parent1.length / 2);
   const shuffled1 = [...parent1].sort(() => Math.random() - 0.5);
   const shuffled2 = [...parent2].sort(() => Math.random() - 0.5);
@@ -4219,11 +4273,16 @@ function mutate(game, ballScores, mutationRate = 0.2) {
     if (Math.random() < mutationRate) {
       const availableNums = [];
       for (let n = 1; n <= 25; n++) {
-        if (!mutated.includes(n)) availableNums.push(n);
+        if (!mutated.includes(n)) {
+          availableNums.push({ num: n, score: ballScores[n] || 0 });
+        }
       }
-      if (availableNums.length > 0) {
-        mutated[i] = availableNums[Math.floor(Math.random() * availableNums.length)];
-      }
+      if (availableNums.length === 0) break;
+
+      availableNums.sort((a, b) => b.score - a.score);
+      const tournamentSize = Math.min(3, availableNums.length);
+      const tournament = availableNums.slice(0, tournamentSize);
+      mutated[i] = tournament[Math.floor(Math.random() * tournament.length)].num;
     }
   }
 
@@ -4286,6 +4345,11 @@ function generateGames(count, size, minHits = 10, temperature = 0.35) {
     minHits
   );
 
+  const adaptiveTemp = computeAdaptiveTemperature(ballScores);
+  const coOccurrenceData = AppState.draws.length >= 30
+    ? calculateCoOccurrenceMatrix(AppState.draws)
+    : null;
+
   const games = [];
   const existingSignatures = new Set();
   let attempts = 0;
@@ -4293,14 +4357,12 @@ function generateGames(count, size, minHits = 10, temperature = 0.35) {
   let validationFailures = 0;
   let diversityFailures = 0;
 
-  // 50% Genetic Algorithm, 50% Simulated Annealing Adaptativo
   const useGA = count >= 5;
 
   if (useGA) {
-    // Gerar metade com GA
     const gaCount = Math.ceil(count / 2);
     for (let i = 0; i < gaCount; i++) {
-      const result = geneticAlgorithm(ballScores, dynamicRules, 30, 20, size);
+      const result = geneticAlgorithm(ballScores, dynamicRules, coOccurrenceData, 30, 20, size, games.map(g => g.balls));
       if (result && result.game) {
         const sigKey = generateSignatureKey(result.game);
         if (!existingSignatures.has(sigKey)) {
@@ -4321,14 +4383,15 @@ function generateGames(count, size, minHits = 10, temperature = 0.35) {
     }
   }
 
-  // Restante com SA adaptativo
   while (games.length < count && attempts < maxAttempts) {
     attempts++;
 
-    let selected = weightedRandomSampling(ballScores, size, temperature);
+    // Amostragem inicial com temperatura MAIS ALTA para garantir diversidade
+    // de pontos de partida (o SA depois refina cada um). Temperatura muito baixa
+    // faria todos partirem dos mesmos tops e convergir para o mesmo jogo.
+    let selected = weightedRandomSampling(ballScores, size, Math.max(0.5, adaptiveTemp * 1.6));
 
-    // SA adaptativo
-    const refined = simulatedAnnealingAdaptive(selected, ballScores, dynamicRules, temperature);
+    const refined = simulatedAnnealingAdaptive(selected, ballScores, dynamicRules, coOccurrenceData, adaptiveTemp, 300, games.map(g => g.balls));
     if (refined.valid) selected = refined.game;
 
     const validation = dynamicRules
@@ -4340,7 +4403,18 @@ function generateGames(count, size, minHits = 10, temperature = 0.35) {
       continue;
     }
 
-    if (games.length >= 3 && !isDiverseEnough(selected, games.map(g => g.balls), 0.25)) {
+    // Diversidade adaptativa: quanto mais jogos já gerados, menor a exigência
+    // de distância mínima (permite concluir a geração sem ficar em loop infinito).
+    let minDist = Math.max(0.08, 0.28 - games.length * 0.015);
+    let isDiverse = isDiverseEnough(selected, games.map(g => g.balls), minDist);
+    // Se estagnado, relaxar progressivamente até aceitar
+    if (!isDiverse && games.length >= 3) {
+      const cap = attempts > maxAttempts * 0.9 ? 1 :
+                  attempts > maxAttempts * 0.6 ? 0.06 : 0;
+      minDist = Math.max(cap, 0.28 - games.length * 0.015);
+      isDiverse = isDiverseEnough(selected, games.map(g => g.balls), minDist);
+    }
+    if (!isDiverse) {
       diversityFailures++;
       continue;
     }
@@ -4535,17 +4609,11 @@ function validateCombinationForGeneration(game, rules) {
    GENERATION STRATEGIES V2 - Completo
    - Reinforcement Learning para pesos (Q-learning simplificado)
    - Feature importance por permutation
-   - 12 componentes de score
+   - 15 componentes de score (predictivos, sem memorização do alvo)
    - Pesos adaptativos baseados no dataset
    - Ensemble de estratégias
    - Contexto temporal
    ========================================================================== */
-
-
-
-
-
-
 
 function normalize(value, min, max) {
   if (max === min) return 0.5;
@@ -4596,7 +4664,13 @@ function getRLWeights(draws, strategy) {
 function updateQTable(draws, strategy, weights, reward, components) {
   const qTable = loadQTable();
   const state = getQTableState(draws, strategy);
-  const learningRate = 0.1;
+  const learningRate = 0.05;
+
+  // OBSERVAÇÃO IMPORTANTE: o `reward` aqui NÃO vem de dados reais ainda.
+  // Ele deve ser computado a partir de resultados de BACKTESTING (quantos
+  // acertos o jogo gerado teve no concurso seguinte). Até lá, manter o
+  // qTable apenas acumulando pesos base injetados. Recomenda-se integrar
+  // com o pipeline de backtest para alimentar `reward` com hits reais.
 
   if (!qTable[state]) {
     qTable[state] = {
@@ -4644,7 +4718,7 @@ function updateQTable(draws, strategy, weights, reward, components) {
 // =========================================================================
 // Mede a importância de cada componente de score
 function calculateFeatureImportance(draws, targetGame, minHits = 10) {
-  const featureNames = ['isTarget', 'corr', 'bayes', 'z', 'delay', 'freq', 'prime', 'moldura', 'trend', 'recent', 'entropy', 'overdue'];
+  const featureNames = ['markov1', 'corr', 'bayes', 'z', 'delay', 'freq', 'prime', 'moldura', 'trend', 'recent', 'entropy', 'overdue', 'kaplanMeier', 'weibull', 'repeatPattern'];
 
   // Score baseline com todos os componentes
   const baseScore = calculateGameScore(draws, targetGame, 'balanced', minHits);
@@ -4681,6 +4755,8 @@ function calculateGameScore(draws, targetGame, strategy, minHits) {
   const zScores = calculateZScores(draws);
   const freqs = calculateFrequencies(draws);
   const trends = calculateFrequencyTrends(draws);
+  const weibullData = calculateWeibullAnalysis(draws);
+  const repeatMask = computeRepeatPatternMask(draws);
 
   for (let i = 0; i < 10; i++) {
     const game = [];
@@ -4693,7 +4769,8 @@ function calculateGameScore(draws, targetGame, strategy, minHits) {
     game.forEach(num => {
       const components = calculateScoreComponents(
         num, targetGame, coOccurrenceData, bayesianResult,
-        delays, zScores, freqs, trends, draws.length
+        delays, zScores, freqs, trends, draws.length,
+        draws, weibullData, repeatMask
       );
       score += applyWeights(components, calculateAdaptiveWeights(draws, strategy));
     });
@@ -4711,6 +4788,8 @@ function calculateGameScoreWithPermutation(draws, targetGame, strategy, minHits,
   const zScores = calculateZScores(draws);
   const freqs = calculateFrequencies(draws);
   const trends = calculateFrequencyTrends(draws);
+  const weibullData = calculateWeibullAnalysis(draws);
+  const repeatMask = computeRepeatPatternMask(draws);
 
   for (let i = 0; i < 10; i++) {
     const game = [];
@@ -4723,7 +4802,8 @@ function calculateGameScoreWithPermutation(draws, targetGame, strategy, minHits,
     game.forEach(num => {
       const components = calculateScoreComponents(
         num, targetGame, coOccurrenceData, bayesianResult,
-        delays, zScores, freqs, trends, draws.length
+        delays, zScores, freqs, trends, draws.length,
+        draws, weibullData, repeatMask
       );
 
       // Permutar o componente especificado
@@ -4753,12 +4833,12 @@ function calculateAdaptiveWeights(draws, strategy) {
   if (rlWeights) return rlWeights;
 
   const baseWeights = {
-    high: { target: 0.35, corr: 0.30, bayes: 0.25, freq: 0, z: 0.10, delay: 0, prime: 0, moldura: 0, trend: 0, recent: 0, entropy: 0, overdue: 0 },
-    balanced: { target: 0.20, corr: 0.20, bayes: 0.20, freq: 0.15, z: 0.15, delay: 0.10, prime: 0, moldura: 0, trend: 0, recent: 0, entropy: 0, overdue: 0 },
-    coverage: { target: 0, corr: 0.20, bayes: 0, freq: 0.25, z: 0.15, delay: 0.25, prime: 0, moldura: 0, trend: 0.10, recent: 0, entropy: 0.05, overdue: 0 },
-    signature: { target: 0.25, corr: 0.25, bayes: 0, freq: 0, z: 0, delay: 0, prime: 0.25, moldura: 0.25, trend: 0, recent: 0, entropy: 0, overdue: 0 },
-    overdue: { target: 0, corr: 0.15, bayes: 0.15, freq: 0, z: 0, delay: 0, prime: 0, moldura: 0, trend: 0, recent: 0, entropy: 0, overdue: 0.70 },
-    hot: { target: 0, corr: 0.15, bayes: 0.15, freq: 0.20, z: 0.30, delay: 0, prime: 0, moldura: 0, trend: 0.10, recent: 0.10, entropy: 0, overdue: 0 }
+    high: { markov1: 0.25, corr: 0.20, bayes: 0.15, freq: 0, z: 0.10, delay: 0.10, prime: 0, moldura: 0, trend: 0.05, recent: 0, entropy: 0, overdue: 0.05, kaplanMeier: 0.05, weibull: 0.05, repeatPattern: 0 },
+    balanced: { markov1: 0.15, corr: 0.15, bayes: 0.15, freq: 0.10, z: 0.10, delay: 0.08, prime: 0.02, moldura: 0.02, trend: 0.05, recent: 0.03, entropy: 0.02, overdue: 0.05, kaplanMeier: 0.05, weibull: 0.03, repeatPattern: 0.02 },
+    coverage: { markov1: 0.10, corr: 0.15, bayes: 0, freq: 0.20, z: 0.10, delay: 0.15, prime: 0, moldura: 0, trend: 0.10, recent: 0, entropy: 0.05, overdue: 0.05, kaplanMeier: 0.05, weibull: 0.05, repeatPattern: 0 },
+    signature: { markov1: 0.10, corr: 0.15, bayes: 0, freq: 0, z: 0, delay: 0, prime: 0.25, moldura: 0.25, trend: 0, recent: 0, entropy: 0, overdue: 0, kaplanMeier: 0.10, weibull: 0.10, repeatPattern: 0.05 },
+    overdue: { markov1: 0.05, corr: 0.10, bayes: 0.10, freq: 0, z: 0, delay: 0, prime: 0, moldura: 0, trend: 0, recent: 0, entropy: 0, overdue: 0.40, kaplanMeier: 0.20, weibull: 0.15, repeatPattern: 0 },
+    hot: { markov1: 0.15, corr: 0.10, bayes: 0.10, freq: 0.15, z: 0.20, delay: 0, prime: 0, moldura: 0, trend: 0.10, recent: 0.10, entropy: 0, overdue: 0, kaplanMeier: 0.05, weibull: 0.05, repeatPattern: 0 }
   };
 
   const weights = { ...baseWeights[strategy] || baseWeights.balanced };
@@ -4766,8 +4846,8 @@ function calculateAdaptiveWeights(draws, strategy) {
   if (entropyFactor < 0.90) {
     weights.freq += 0.05;
     weights.z += 0.05;
-    weights.target = Math.max(0, weights.target - 0.05);
     weights.corr = Math.max(0, weights.corr - 0.05);
+    weights.markov1 = Math.max(0, weights.markov1 - 0.05);
   }
 
   if (n < 50) {
@@ -4788,12 +4868,53 @@ function calculateAdaptiveWeights(draws, strategy) {
 }
 
 // =========================================================================
+// PADRÃO DE REPETIÇÃO ENTRE CONCURSOS CONSECUTIVOS
+// =========================================================================
+// Analisa quantas vezes cada número repete de um concurso para o seguinte.
+// Retorna um Set de números cujo índice de repetição supera 50% do tempo.
+function computeRepeatPatternMask(draws) {
+  const mask = new Set();
+  if (!draws || draws.length < 2) return mask;
+
+  const repeatCount = new Array(TOTAL_NUMBERS + 1).fill(0);
+  for (let i = 1; i < draws.length; i++) {
+    const prev = new Set(draws[i - 1].b || []);
+    (draws[i].b || []).forEach(n => {
+      if (n >= 1 && n <= TOTAL_NUMBERS && prev.has(n)) repeatCount[n]++;
+    });
+  }
+
+  const maxObserved = Math.max(...repeatCount.slice(1), 1);
+  const pairs = draws.length - 1;
+
+  for (let n = 1; n <= TOTAL_NUMBERS; n++) {
+    // Considera "repetidor" quando aparece em mais da metade das transições
+    if (repeatCount[n] / pairs > 0.5) mask.add(n);
+  }
+
+  return mask;
+}
+
+// =========================================================================
 // COMPONENTES DE SCORE
 // =========================================================================
-function calculateScoreComponents(num, targetGame, coOccurrenceData, bayesianResult, delays, zScores, freqs, trends, totalDraws) {
+function calculateScoreComponents(num, targetGame, coOccurrenceData, bayesianResult, delays, zScores, freqs, trends, totalDraws, draws, weibullData, repeatMask) {
   const components = {};
 
-  components.isTarget = targetGame.includes(num) ? 1 : 0;
+  // Feature preditiva substituindo o antigo isTarget (contaminava o score ao
+  // memorizar o alvo). markov1 usa o contexto do último concurso.
+  let markov1Score = 0.5;
+  if (draws && draws.length >= 2 && bayesianResult?.markov1) {
+    const lastDraw = draws[draws.length - 1];
+    let best = 0;
+    (lastDraw.b || []).forEach(from => {
+      const prob = getMarkovTransition(bayesianResult, from, num) || 0;
+      if (prob > best) best = prob;
+    });
+    markov1Score = best;
+  }
+  components.markov1 = markov1Score;
+
   components.corr = calculateCorrelationScore(num, targetGame, coOccurrenceData);
   components.bayes = bayesianResult.posteriors[num] || 0;
 
@@ -4814,6 +4935,44 @@ function calculateScoreComponents(num, targetGame, coOccurrenceData, bayesianRes
   const expectedDelay = 25 / 15;
   components.overdue = normalize(delays[num] || 0, 0, expectedDelay * 3);
 
+  // Kaplan-Meier: probabilidade de "aparecer" = 1 - sobrevivência no atraso atual
+  let kaplanMeierScore = 0.5;
+  if (draws && draws.length >= 10) {
+    const km = calculateKaplanMeier(draws, num);
+    if (km && Array.isArray(km.curve) && km.curve.length > 0) {
+      const currentDelay = delays[num] || 0;
+      const curve = km.curve;
+      let survival = 1;
+      // última sobrevivência registrada no tempo <= atraso atual
+      for (const point of curve) {
+        if (point.time <= currentDelay) survival = parseFloat(point.survival);
+        else break;
+      }
+      kaplanMeierScore = Math.max(0, Math.min(1, 1 - survival));
+    }
+  }
+  components.kaplanMeier = kaplanMeierScore;
+
+  // Weibull: classificação por hazard rate. shape > 1 => "aging" =>
+  // números atrasados têm maior chance de sair.
+  let weibullScore = 0.5;
+  if (weibullData && weibullData.shape) {
+    const shape = parseFloat(weibullData.shape);
+    const scale = parseFloat(weibullData.scale) || 1;
+    const currentDelay = delays[num] || 0;
+    if (shape > 1) {
+      // aging: quanto mais atrasado, maior a chance
+      weibullScore = currentDelay >= scale ? 1 : normalize(currentDelay, 0, scale * 1.5);
+    } else {
+      // infant/constante: recência favorece
+      weibullScore = currentDelay <= scale ? 1 : 0.3;
+    }
+  }
+  components.weibull = weibullScore;
+
+  // Padrão de repetição entre concursos consecutivos (binário)
+  components.repeatPattern = repeatMask && repeatMask.has(num) ? 1 : 0;
+
   return components;
 }
 
@@ -4828,6 +4987,8 @@ function calculateBallScores(draws, targetGame, strategy, customWeights, minHits
   const zScores = calculateZScores(draws);
   const freqs = calculateFrequencies(draws);
   const trends = calculateFrequencyTrends(draws);
+  const weibullData = calculateWeibullAnalysis(draws);
+  const repeatMask = computeRepeatPatternMask(draws);
 
   const adaptiveWeights = calculateAdaptiveWeights(draws, strategy);
 
@@ -4836,20 +4997,21 @@ function calculateBallScores(draws, targetGame, strategy, customWeights, minHits
   for (let num = 1; num <= TOTAL_NUMBERS; num++) {
     const components = calculateScoreComponents(
       num, targetGame, coOccurrenceData, bayesianResult,
-      delays, zScores, freqs, trends, totalDraws
+      delays, zScores, freqs, trends, totalDraws,
+      draws, weibullData, repeatMask
     );
 
     let finalScore = 0;
 
     if (strategy === 'custom' && customWeights) {
       const w = customWeights;
-      const totalWeight = w.target + w.cooccurrence + w.bayes + w.delay;
-      const wt = totalWeight > 0 ? w.target / totalWeight : 0.25;
-      const wc = totalWeight > 0 ? w.cooccurrence / totalWeight : 0.25;
-      const wb = totalWeight > 0 ? w.bayes / totalWeight : 0.25;
-      const wd = totalWeight > 0 ? w.delay / totalWeight : 0.25;
+      const totalWeight = (w.target || 0) + (w.cooccurrence || 0) + (w.bayes || 0) + (w.delay || 0);
+      const wm = totalWeight > 0 ? (w.target || 0) / totalWeight : 0.25;
+      const wc = totalWeight > 0 ? (w.cooccurrence || 0) / totalWeight : 0.25;
+      const wb = totalWeight > 0 ? (w.bayes || 0) / totalWeight : 0.25;
+      const wd = totalWeight > 0 ? (w.delay || 0) / totalWeight : 0.25;
 
-      finalScore = (components.isTarget * wt) + (components.corr * wc) +
+      finalScore = (components.markov1 * wm) + (components.corr * wc) +
                    (components.bayes * wb) + (components.delay * wd);
     } else if (strategy === 'ensemble') {
       const strategies = ['high', 'balanced', 'coverage', 'overdue'];
@@ -4870,7 +5032,7 @@ function calculateBallScores(draws, targetGame, strategy, customWeights, minHits
 
 function applyWeights(components, weights) {
   return (
-    (components.isTarget * (weights.target || 0)) +
+    (components.markov1 * (weights.markov1 || 0)) +
     (components.corr * (weights.corr || 0)) +
     (components.bayes * (weights.bayes || 0)) +
     (components.z * (weights.z || 0)) +
@@ -4881,7 +5043,10 @@ function applyWeights(components, weights) {
     (components.trend * (weights.trend || 0)) +
     (components.recent * (weights.recent || 0)) +
     (components.entropy * (weights.entropy || 0)) +
-    (components.overdue * (weights.overdue || 0))
+    (components.overdue * (weights.overdue || 0)) +
+    (components.kaplanMeier * (weights.kaplanMeier || 0)) +
+    (components.weibull * (weights.weibull || 0)) +
+    (components.repeatPattern * (weights.repeatPattern || 0))
   );
 }
 
@@ -4894,10 +5059,6 @@ function applyWeights(components, weights) {
    - Validação estatística, temporal, diversidade
    - Mahalanobis distance para outliers multivariados
    ========================================================================== */
-
-
-
-
 
 const FALLBACK_RULES = {
   sum: { min: 150, max: 220 },
@@ -5114,46 +5275,48 @@ function validateDiversity(game, draws, minDistance = 0.25) {
 // =========================================================================
 // BACKTESTING — Validação cruzada temporal
 // =========================================================================
-function backtestRules(draws, testSize = 30) {
+function backtestRules(draws, testSize = 30, gameSize = 15) {
   if (draws.length < testSize + 50) {
     return { isValid: false, message: 'Dados insuficientes para backtesting' };
   }
 
   const results = [];
-  const windowSize = Math.floor(draws.length * 0.7);
+  const windowSize = Math.max(50, Math.floor(draws.length * 0.5));
 
-  // Walk-forward validation
-  for (let i = windowSize; i <= draws.length - testSize; i += testSize) {
+  for (let i = windowSize; i <= draws.length - testSize; i += Math.max(1, Math.floor(testSize / 2))) {
     const trainDraws = draws.slice(0, i);
-    const testDraws = draws.slice(i, i + testSize);
+    const testDraws = draws.slice(i, Math.min(i + testSize, draws.length));
+
+    if (testDraws.length === 0) break;
 
     const rules = deriveRulesFromDataset(trainDraws);
-
-    let correct = 0;
-    let total = 0;
+    let hitDistribution = new Array(16).fill(0);
 
     testDraws.forEach(d => {
+      // Validate if the real draw follows rules
       const validation = validateCombinationWithRules(d.b, rules);
-      if (validation.isValid) correct++;
-      total++;
+      if (validation.isValid) hitDistribution[gameSize]++; // Perfect match = 15 hits
     });
+
+    const validRate = testDraws.length > 0
+      ? hitDistribution[gameSize] / testDraws.length * 100
+      : 0;
 
     results.push({
       windowStart: i,
-      windowEnd: i + testSize,
-      accuracy: total > 0 ? (correct / total * 100).toFixed(2) : 0,
-      correct,
-      total
+      windowEnd: Math.min(i + testSize, draws.length),
+      ruleComplianceRate: validRate.toFixed(2),
+      testDraws: testDraws.length
     });
   }
 
-  const avgAccuracy = results.length > 0
-    ? results.reduce((a, r) => a + parseFloat(r.accuracy), 0) / results.length
+  const avgCompliance = results.length > 0
+    ? results.reduce((a, r) => a + parseFloat(r.ruleComplianceRate), 0) / results.length
     : 0;
 
   return {
-    isValid: avgAccuracy > 50,
-    avgAccuracy: avgAccuracy.toFixed(2),
+    isValid: avgCompliance > 60,
+    avgComplianceRate: avgCompliance.toFixed(2),
     windows: results.length,
     details: results
   };
@@ -5216,7 +5379,7 @@ function detectAnomalies(draws, numTrees = 100, sampleSize = 256) {
 }
 
 function buildIsolationTree(data, currentDepth, maxDepth) {
-  if (currentDepth >= maxDepth || data.length <= 1) {
+  if (data.length <= 1 || currentDepth >= maxDepth) {
     return { type: 'leaf', size: data.length };
   }
 
@@ -5261,55 +5424,80 @@ function averagePathLength(n) {
 }
 
 // =========================================================================
-// MAHALANOBIS DISTANCE (Simplificado sem inversão de matriz)
+// MAHALANOBIS DISTANCE (matriz de covariância completa)
 // =========================================================================
-function calculateMahalanobisDistance(game, draws) {
-  if (draws.length < 30) return { distance: 0, isOutlier: false };
 
-  const gameSig = calculateStructuralSignature(game);
-  const features = [gameSig.sum, gameSig.evens, gameSig.moldura, gameSig.primes, gameSig.maxStreak];
+function invertMatrix(mat, n) {
+  // Augment with identity
+  const aug = mat.map((row, i) => [...row, ...Array(n).fill(0).map((_, j) => i === j ? 1 : 0)]);
 
-  const drawSigs = draws.map(d => {
-    const sig = calculateStructuralSignature(d.b);
-    return [sig.sum, sig.evens, sig.moldura, sig.primes, sig.maxStreak];
-  });
+  for (let col = 0; col < n; col++) {
+    // Find pivot
+    let maxRow = col;
+    for (let row = col + 1; row < n; row++) {
+      if (Math.abs(aug[row][col]) > Math.abs(aug[maxRow][col])) maxRow = row;
+    }
+    [aug[col], aug[maxRow]] = [aug[maxRow], aug[col]];
 
-  // Médias
-  const means = [0, 0, 0, 0, 0];
-  for (let f = 0; f < 5; f++) {
-    means[f] = drawSigs.reduce((a, v) => a + v[f], 0) / drawSigs.length;
-  }
+    if (Math.abs(aug[col][col]) < 1e-12) return null;
 
-  // Covariância diagonal (simplificação)
-  const variances = [0, 0, 0, 0, 0];
-  for (let f = 0; f < 5; f++) {
-    variances[f] = drawSigs.reduce((a, v) => a + Math.pow(v[f] - means[f], 2), 0) / drawSigs.length;
-  }
+    // Scale pivot row
+    const pivot = aug[col][col];
+    for (let j = 0; j < 2 * n; j++) aug[col][j] /= pivot;
 
-  // Distância
-  let distance = 0;
-  for (let f = 0; f < 5; f++) {
-    if (variances[f] > 0) {
-      distance += Math.pow(features[f] - means[f], 2) / variances[f];
+    // Eliminate column
+    for (let row = 0; row < n; row++) {
+      if (row === col) continue;
+      const factor = aug[row][col];
+      for (let j = 0; j < 2 * n; j++) aug[row][j] -= factor * aug[col][j];
     }
   }
-  distance = Math.sqrt(distance);
 
-  // Threshold: chi2 com df=5, p=0.05 ≈ 11.07, sqrt(11.07) ≈ 3.33
-  const threshold = 3.33;
+  return aug.map(row => row.slice(n));
+}
 
-  return {
-    distance: distance.toFixed(4),
-    isOutlier: distance > threshold,
-    threshold,
-    features: {
-      sum: { value: features[0], mean: means[0].toFixed(1), sd: Math.sqrt(variances[0]).toFixed(1) },
-      evens: { value: features[1], mean: means[1].toFixed(1), sd: Math.sqrt(variances[1]).toFixed(1) },
-      moldura: { value: features[2], mean: means[2].toFixed(1), sd: Math.sqrt(variances[2]).toFixed(1) },
-      primes: { value: features[3], mean: means[3].toFixed(1), sd: Math.sqrt(variances[3]).toFixed(1) },
-      maxStreak: { value: features[4], mean: means[4].toFixed(1), sd: Math.sqrt(variances[4]).toFixed(1) }
-    }
-  };
+// =========================================================================
+// ANÁLISE DE PADRÕES DE REPETIÇÃO
+// =========================================================================
+function analyzeRepeatPatterns(draws) {
+  if (draws.length < 5) return null;
+
+  const repeatCounts = { 0: 0, 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
+  const maxRepeat = 10;
+  for (let i = 0; i <= maxRepeat; i++) repeatCounts[i] = 0;
+
+  for (let i = 1; i < draws.length; i++) {
+    const prevSet = new Set(draws[i - 1].b);
+    let repeats = 0;
+    draws[i].b.forEach(n => { if (prevSet.has(n)) repeats++; });
+    if (repeats <= maxRepeat) repeatCounts[repeats]++;
+    else repeatCounts[maxRepeat]++;
+  }
+
+  const total = draws.length - 1;
+  const distribution = {};
+  for (let i = 0; i <= maxRepeat; i++) {
+    distribution[i] = { count: repeatCounts[i] || 0, pct: total > 0 ? ((repeatCounts[i] || 0) / total * 100).toFixed(1) : '0' };
+  }
+
+  const expectedRepeat = 15 * 15 / 25; // ~9
+
+  return { distribution, expectedRepeat: expectedRepeat.toFixed(1), totalPairs: total };
+}
+
+function validateRepeatPattern(game, draws, maxAllowedRepeats = 12) {
+  if (draws.length < 2) return { isValid: true, warnings: [] };
+
+  const lastDraw = draws[draws.length - 1].b;
+  let repeats = 0;
+  game.forEach(n => { if (lastDraw.includes(n)) repeats++; });
+
+  const warnings = [];
+  if (repeats > maxAllowedRepeats) {
+    warnings.push(`${repeats} números repetidos do último concurso (máx: ${maxAllowedRepeats})`);
+  }
+
+  return { isValid: warnings.length === 0, warnings, repeatCount: repeats };
 }
 
 function validateAll(game, draws, rules = null) {
@@ -5321,20 +5509,18 @@ function validateAll(game, draws, rules = null) {
   const temporal = validateTemporal(game, draws);
   const diversity = validateDiversity(game, draws);
   const mahalanobis = calculateMahalanobisDistance(game, draws);
+  const repeatPattern = validateRepeatPattern(game, draws);
 
   return {
-    isValid: structural.isValid && statistical.isValid && temporal.isValid && diversity.isValid && !mahalanobis.isOutlier,
-    structural,
-    statistical,
-    temporal,
-    diversity,
-    mahalanobis,
+    isValid: structural.isValid && statistical.isValid && temporal.isValid && diversity.isValid && !mahalanobis.isOutlier && repeatPattern.isValid,
+    structural, statistical, temporal, diversity, mahalanobis, repeatPattern,
     allWarnings: [
       ...structural.violations,
       ...statistical.warnings,
       ...temporal.warnings,
       ...diversity.warnings,
-      ...(mahalanobis.isOutlier ? ['Jogo é outlier estatístico (Mahalanobis)'] : [])
+      ...(mahalanobis.isOutlier ? ['Jogo é outlier estatístico (Mahalanobis)'] : []),
+      ...repeatPattern.warnings
     ]
   };
 }
@@ -5443,13 +5629,10 @@ function addToastStyles() {
   `;
   document.head.appendChild(style);
 }
-
 // === ui/navigation.js ===
 /* ==========================================================================
    NAVIGATION & TABS (with deep-linking support)
    ========================================================================== */
-
-
 
 function setupNavigation() {
   const navTabs = document.querySelectorAll('.nav-tab');
@@ -5486,16 +5669,10 @@ function setupNavigation() {
     });
   });
 }
-
 // === ui/picker.js ===
 /* ==========================================================================
    TARGET GAME PICKER GRID
    ========================================================================== */
-
-
-
-
-
 
 function setupPickerGrid() {
   const container = document.getElementById('pickerGridContainer');
@@ -5576,22 +5753,10 @@ function setTargetPreset(presetType) {
   setupPickerGrid();
   refreshAllAnalysis();
 }
-
 // === ui/tables.js ===
 /* ==========================================================================
    TABLES & RENDERING V2 - Completo com todas as novas métricas
    ========================================================================== */
-
-
-
-
-
-
-
-
-
-
-
 
 function refreshAllAnalysis() {
   invalidateCache();
@@ -5968,7 +6133,6 @@ function renderHeatmapGrid() {
   container.appendChild(fragment);
 }
 
-
 function renderFrequencyAnalysis() {
   const container = document.getElementById('frequencyAnalysisContainer');
   if (!container || AppState.draws.length === 0) return;
@@ -6133,7 +6297,7 @@ function renderAdvancedAnalysis(minHits) {
           <i class="fa-solid fa-flask"></i> BACKTESTING
         </div>
         <div style="font-size: 1.1rem; font-weight:800; color: ${backtest.isValid ? '#34d399' : '#f87171'};">
-          ${backtest.isValid ? backtest.avgAccuracy + '%' : 'N/A'}
+          ${backtest.isValid ? backtest.avgComplianceRate + '%' : 'N/A'}
         </div>
         <div style="font-size: 0.6rem; color: var(--text-dim);">${backtest.windows || 0} janelas testadas</div>
       </div>
@@ -6246,10 +6410,6 @@ function renderGeneratedGamesGrid() {
 /* ==========================================================================
    CHARTS RENDERING - Com distribuição hipergeométrica e Z-scores
    ========================================================================== */
-
-
-
-
 
 function refreshCharts() {
   renderMatchDistributionChart();
@@ -6480,14 +6640,10 @@ function renderRadarSignatureChart() {
     }
   });
 }
-
 // === services/excel.js ===
 /* ==========================================================================
    EXCEL SERVICE - Upload e export
    ========================================================================== */
-
-
-
 
 function updateDatasetStatus(statusText) {
   const badge = document.getElementById('datasetStatusBadge');
@@ -6732,15 +6888,10 @@ function downloadFile(content, filename, contentType) {
   a.click();
   URL.revokeObjectURL(url);
 }
-
 // === services/api.js ===
 /* ==========================================================================
    API SERVICE - Fetch online com timeout e retry
    ========================================================================== */
-
-
-
-
 
 async function fetchWithTimeout(url, timeoutMs = 10000) {
   const controller = new AbortController();
@@ -6943,21 +7094,10 @@ function downloadUpdatedSpreadsheet() {
   XLSXLib.writeFile(workbook, filename);
   showToast('Planilha exportada com sucesso!', 'success');
 }
-
 // === app.js ===
 /* ==========================================================================
    MAIN APPLICATION ENGINE - Modular
    ========================================================================== */
-
-
-
-
-
-
-
-
-
-
 
 const STORAGE_KEY = 'lotofacil_settings';
 
@@ -6988,16 +7128,7 @@ function initApp() {
   AppState.draws = [];
   AppState.targetGame = [];
 
-  // Load preloaded dataset if available
-  if (typeof window.LOTOFACIL_PRELOADED_DATA !== 'undefined' && window.LOTOFACIL_PRELOADED_DATA.length > 0) {
-    AppState.draws = window.LOTOFACIL_PRELOADED_DATA.map(item => ({
-      concurso: item.c,
-      numbers: item.b
-    }));
-    updateDatasetStatus('Base de dados carregada: ' + AppState.draws.length + ' sorteios (pré-carregados).');
-  } else {
-    updateDatasetStatus('Nenhum arquivo carregado. Faça o upload ou busque online.');
-  }
+  updateDatasetStatus('Nenhum arquivo carregado. Faça o upload ou busque online.');
 
   setupNavigation();
   setupPickerGrid();
@@ -7105,12 +7236,6 @@ function handleGenerateGames() {
 }
 
 // Expose functions to global scope for HTML onclick handlers
-window.setTargetPreset = setTargetPreset;
-window.downloadUpdatedSpreadsheet = downloadUpdatedSpreadsheet;
-
-
-
-
 window.setTargetPreset = setTargetPreset;
 window.downloadUpdatedSpreadsheet = downloadUpdatedSpreadsheet;
 
