@@ -4,7 +4,6 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Lotofácil AI - Predição de Números</title>
-<!-- CDNs em HTTPS puro, 100% compatível com GitHub Pages -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <style>
@@ -29,7 +28,7 @@ main{max-width:1400px;margin:0 auto;padding:0 24px 40px}
 .tab-content.active{display:block}
 @keyframes fadeIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
 .card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:24px;margin-bottom:20px}
-.card-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;padding-bottom:12px;border-bottom:1px solid var(--border)}
+.card-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;padding-bottom:12px;border-bottom:1px solid var(--border);flex-wrap:wrap;gap:8px}
 .card-title{font-size:1.2rem;font-weight:700;color:var(--accent2)}
 .btn{padding:10px 24px;border-radius:8px;border:none;font-weight:700;font-size:.95rem;cursor:pointer;transition:all .3s;display:inline-flex;align-items:center;gap:8px}
 .btn-primary{background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;box-shadow:0 4px 15px rgba(124,58,237,.4)}
@@ -269,7 +268,14 @@ let pairFreq={};
 let nDraws=0;
 let drawMasks=null;
 let targetMask=0;
+let FIRST_CONCURSO=1;
+let LAST_CONCURSO=0;
+let selectedFile=null;
 
+// Variável global padronizada (sem 'window.' para evitar problemas de escopo)
+let DRAWS_DATA = [];
+
+// ===== OTIMIZAÇÃO: Bitmask para fitness function ultra-rápida =====
 function popcount(n){
 n=n-((n>>1)&0x55555555);
 n=(n&0x33333333)+((n>>2)&0x33333333);
@@ -284,7 +290,6 @@ return m;
 
 const fitnessCache=new Map();
 const MAX_CACHE=5000;
-function clearFitnessCache(){fitnessCache.clear();}
 
 function comboToKey(combo){
 return combo.slice().sort((a,b)=>a-b).join(',');
@@ -345,150 +350,241 @@ const key=s[i]+','+s[j];
 pairFreq[key]=(pairFreq[key]||0)+1;
 }
 }
-
 drawMasks=new Uint32Array(nDraws);
 for(let i=0;i<nDraws;i++)drawMasks[i]=toMask(allDraws[i]);
 targetMask=toMask(TARGET);
-
-clearFitnessCache();
+fitnessCache.clear();
 }
 
-// ===== DATA MANAGEMENT =====
-let selectedFile=null;
-let FIRST_CONCURSO=1;
-let LAST_CONCURSO=3872;
+// ===== API CAIXA COM MÚLTIPLOS PROXIES CORS (Corrigido e Robusto) =====
+async function fetchLotofacil(concursoNum) {
+    const url = `https://servicebus2.caixa.gov.br/portaldeloterias/api/lotofacil/${concursoNum}`;
+    const proxies = [
+        u => `https://api.allorigins.win/raw?url=${encodeURIComponent(u)}`,
+        u => `https://corsproxy.io/?${encodeURIComponent(u)}`,
+        u => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(u)}`
+    ];
 
-function setStatusData(prefix,msg,type){
-const el=document.getElementById(prefix+'-status');
-const txt=document.getElementById(prefix+'-status-text');
-if(!el||!txt)return;
-el.style.display='block';
-el.className='status-bar status-'+type;
-txt.textContent=msg;
-if(type==='done'||type==='error')setTimeout(()=>{el.style.display='none';},8000);
+    for (const proxyFn of proxies) {
+        try {
+            const res = await fetch(proxyFn(url));
+            if (res.ok) {
+                const data = await res.json();
+                // A API da Caixa pode retornar 'dezenasOrdemSorteio', 'dezenas' ou 'listaDezenas'
+                const dezenas = data.dezenasOrdemSorteio || data.dezenas || data.listaDezenas;
+                if (dezenas && Array.isArray(dezenas) && dezenas.length >= 15) {
+                    return {
+                        concurso: parseInt(data.numero || data.concurso || concursoNum),
+                        numbers: dezenas.slice(0, 15).map(n => parseInt(n, 10))
+                    };
+                }
+            }
+        } catch (e) {
+            continue; // Tenta o próximo proxy se este falhar
+        }
+    }
+    throw new Error("Falha ao buscar dados em todos os proxies de CORS.");
 }
 
-function loadDataInfo(){
-const total=DRAWS_DATA?DRAWS_DATA.length:0;
-document.getElementById('data-info').innerHTML='<div class="result-grid"><div class="result-card info"><div class="result-value">'+total+'</div><div class="result-label">Total de Concursos</div></div><div class="result-card info"><div class="result-value">'+LAST_CONCURSO+'</div><div class="result-label">Último Concurso</div></div><div class="result-card info"><div class="result-value">'+FIRST_CONCURSO+'</div><div class="result-label">Primeiro Concurso</div></div></div><div style="margin-top:12px;font-size:.85rem;color:var(--text2)">Dados: concursos '+FIRST_CONCURSO+' a '+LAST_CONCURSO+'</div>';
+function setStatusData(prefix, msg, type) {
+    const el = document.getElementById(prefix + '-status');
+    const txt = document.getElementById(prefix + '-status-text');
+    if (!el || !txt) return;
+    el.style.display = 'block';
+    el.className = 'status-bar status-' + type;
+    txt.textContent = msg;
+    if (type === 'done' || type === 'error') {
+        setTimeout(() => { el.style.display = 'none'; }, 8000);
+    }
 }
 
-function handleFileSelect(input){
-selectedFile=input.files[0];
-document.getElementById('fileName').textContent=selectedFile?selectedFile.name:'Nenhum arquivo selecionado';
-document.getElementById('btnUpload').disabled=!selectedFile;
+function loadDataInfo() {
+    // ✅ CORREÇÃO: Usa DRAWS_DATA diretamente, não window.DRAWS_DATA
+    const total = DRAWS_DATA ? DRAWS_DATA.length : 0;
+    document.getElementById('data-info').innerHTML = '<div class="result-grid"><div class="result-card info"><div class="result-value">'+total+'</div><div class="result-label">Total de Concursos</div></div><div class="result-card info"><div class="result-value">'+LAST_CONCURSO+'</div><div class="result-label">Último Concurso</div></div><div class="result-card info"><div class="result-value">'+FIRST_CONCURSO+'</div><div class="result-label">Primeiro Concurso</div></div></div><div style="margin-top:12px;font-size:.85rem;color:var(--text2)">Dados: concursos '+FIRST_CONCURSO+' a '+LAST_CONCURSO+'</div>';
 }
 
-function uploadFile(){
-if(!selectedFile)return;
-setStatusData('upload','Processando planilha...','running');
-const reader=new FileReader();
-reader.onload=function(e){
-try{
-const data=new Uint8Array(e.target.result);
-const workbook=XLSX.read(data,{type:'array'});
-const sheet=workbook.Sheets[workbook.SheetNames[0]];
-const json=XLSX.utils.sheet_to_json(sheet,{header:1});
-if(json.length<2){setStatusData('upload','Planilha vazia','error');return;}
-const headers=json[0].map(h=>String(h).trim().toLowerCase());
-const concursoIdx=headers.findIndex(h=>h==='concurso');
-const bolaIndices=[];
-for(let i=1;i<=15;i++)bolaIndices.push(headers.findIndex(h=>h==='bola'+i));
-if(concursoIdx===-1||bolaIndices.some(i=>i===-1)){setStatusData('upload','Colunas inválidas','error');return;}
-const newDraws=[];
-for(let r=1;r<json.length;r++){
-const row=json[r];if(!row)continue;
-const concurso=parseInt(row[concursoIdx]);
-const nums=bolaIndices.map(i=>parseInt(row[i])).filter(n=>!isNaN(n)&&n>=1&&n<=25);
-if(nums.length===15&&!isNaN(concurso))newDraws.push({concurso,numbers:nums});
-}
-if(newDraws.length===0){setStatusData('upload','Nenhum concurso válido','error');return;}
-newDraws.sort((a,b)=>a.concurso-b.concurso);
-DRAWS_DATA=newDraws.map(d=>d.numbers);
-FIRST_CONCURSO=newDraws[0].concurso;
-LAST_CONCURSO=newDraws[newDraws.length-1].concurso;
-loadData();loadDataInfo();loadOverview();
-setStatusData('upload',selectedFile.name+': '+newDraws.length+' concursos importados','done');
-}catch(err){setStatusData('upload','Erro: '+err.message,'error');}
-};
-reader.readAsArrayBuffer(selectedFile);
+function handleFileSelect(input) {
+    selectedFile = input.files[0];
+    document.getElementById('fileName').textContent = selectedFile ? selectedFile.name : 'Nenhum arquivo selecionado';
+    document.getElementById('btnUpload').disabled = !selectedFile;
 }
 
-// ===== API CAIXA COM FALLBACK DUPLO PARA GITHUB PAGES =====
-const CAIXA_API = 'https://servicebus2.caixa.gov.br/portaldeloterias/api/lotofacil';
-const PROXY_1 = 'https://corsproxy.io/?url=';
-const PROXY_2 = 'https://api.allorigins.win/raw?url=';
-
-async function fetchCaixa(url) {
-// Tenta direto (funciona em alguns navegadores/configurações)
-try { const res = await fetch(url); if (res.ok) return await res.json(); } catch (e) {}
-// Tenta Proxy 1
-try { const res = await fetch(PROXY_1 + encodeURIComponent(url)); if (res.ok) return await res.json(); } catch (e) {}
-// Tenta Proxy 2 (Fallback)
-try { const res = await fetch(PROXY_2 + encodeURIComponent(url)); if (res.ok) return await res.json(); } catch (e) {}
-throw new Error('Não foi possível acessar a API da Caixa. Tente novamente mais tarde.');
+function uploadFile() {
+    if (!selectedFile) return;
+    setStatusData('upload', 'Processando planilha...', 'running');
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        try {
+            const data = new Uint8Array(e.target.result);
+            const workbook = XLSX.read(data, { type: 'array' });
+            const sheet = workbook.Sheets[workbook.SheetNames[0]];
+            const json = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+            if (json.length < 2) { setStatusData('upload', 'Planilha vazia', 'error'); return; }
+            
+            const headers = json[0].map(h => String(h).trim().toLowerCase());
+            const concursoIdx = headers.findIndex(h => h === 'concurso');
+            const bolaIndices = [];
+            for (let i = 1; i <= 15; i++) bolaIndices.push(headers.findIndex(h => h === 'bola' + i));
+            
+            if (concursoIdx === -1 || bolaIndices.some(i => i === -1)) { setStatusData('upload', 'Colunas inválidas', 'error'); return; }
+            
+            const newDraws = [];
+            for (let r = 1; r < json.length; r++) {
+                const row = json[r];
+                if (!row) continue;
+                const concurso = parseInt(row[concursoIdx]);
+                const nums = bolaIndices.map(i => parseInt(row[i])).filter(n => !isNaN(n) && n >= 1 && n <= 25);
+                if (nums.length === 15 && !isNaN(concurso)) newDraws.push({ concurso, numbers: nums });
+            }
+            if (newDraws.length === 0) { setStatusData('upload', 'Nenhum concurso válido', 'error'); return; }
+            
+            newDraws.sort((a, b) => a.concurso - b.concurso);
+            DRAWS_DATA = newDraws.map(d => d.numbers);
+            FIRST_CONCURSO = newDraws[0].concurso;
+            LAST_CONCURSO = newDraws[newDraws.length - 1].concurso;
+            
+            loadData(); loadDataInfo(); loadOverview();
+            document.getElementById('totalDraws').textContent = nDraws;
+            document.getElementById('lastConc').textContent = LAST_CONCURSO;
+            setStatusData('upload', selectedFile.name + ': ' + newDraws.length + ' concursos importados', 'done');
+        } catch (err) {
+            setStatusData('upload', 'Erro: ' + err.message, 'error');
+        }
+    };
+    reader.readAsArrayBuffer(selectedFile);
 }
 
 async function checkUpdate() {
-setStatusData('update', 'Consultando API da Loterias Caixa...', 'running');
-document.getElementById('update-results').innerHTML = '';
-try {
-const data = await fetchCaixa(CAIXA_API);
-const apiLast = data.concurso || 0;
-const newDraws = Math.max(0, apiLast - LAST_CONCURSO);
-if (newDraws > 0) setStatusData('update', newDraws + ' novos concursos disponíveis', 'done');
-else setStatusData('update', 'Dados já atualizados', 'done');
-} catch (e) {
-setStatusData('update', 'Aviso: ' + e.message + ' (Os dados locais continuam funcionando)', 'error');
-}
+    setStatusData('update', 'Consultando API da Caixa...', 'running');
+    document.getElementById('update-results').innerHTML = '';
+    try {
+        // Tenta buscar o próximo concurso para ver se existe
+        const nextConcurso = LAST_CONCURSO + 1;
+        const data = await fetchLotofacil(nextConcurso);
+        if (data && data.numbers.length === 15) {
+            setStatusData('update', `Novos concursos disponíveis a partir do ${nextConcurso}!`, 'done');
+        } else {
+            setStatusData('update', 'Dados já atualizados (Último: ' + LAST_CONCURSO + ')', 'done');
+        }
+    } catch (e) {
+        // Se falhar, pode ser que não haja novo ou o proxy caiu. Vamos assumir que está atualizado ou houve erro de rede.
+        setStatusData('update', 'Não foi possível verificar (Erro de rede/CORS). Tente baixar diretamente.', 'error');
+    }
 }
 
 async function runUpdate() {
-setStatusData('update', 'Baixando novos concursos...', 'running');
-document.getElementById('update-results').innerHTML = '';
-try {
-const currentDraws = DRAWS_DATA || [];
-let concursoNum = LAST_CONCURSO + 1;
-let newRows = [];
-let consecutiveErrors = 0;
-const MAX_ATTEMPTS = 50;
-let attempts = 0;
-while (consecutiveErrors < 3 && attempts < MAX_ATTEMPTS) {
-attempts++;
-try {
-const data = await fetchCaixa(CAIXA_API + '/' + concursoNum);
-if (data && data.listaDezenas && data.listaDezenas.length === 15) {
-const nums = data.listaDezenas.map(n => parseInt(n)).filter(n => !isNaN(n));
-if (nums.length === 15) { newRows.push(nums); consecutiveErrors = 0; }
-else consecutiveErrors++;
-} else consecutiveErrors++;
-concursoNum++;
-} catch (err) { consecutiveErrors++; concursoNum++; }
-}
-if (newRows.length > 0) {
-DRAWS_DATA = [...currentDraws, ...newRows];
-LAST_CONCURSO = LAST_CONCURSO + newRows.length;
-loadData(); loadDataInfo(); loadOverview();
-setStatusData('update', newRows.length + ' concursos baixados | Total: ' + DRAWS_DATA.length, 'done');
-} else {
-setStatusData('update', 'Nenhum novo concurso encontrado', 'done');
-}
-} catch (e) {
-setStatusData('update', 'Erro: ' + e.message, 'error');
-}
+    setStatusData('update', 'Buscando novos concursos...', 'running');
+    document.getElementById('update-results').innerHTML = '';
+    try {
+        let concursoNum = LAST_CONCURSO + 1;
+        let newRows = [];
+        let consecutiveErrors = 0;
+        const MAX_ATTEMPTS = 50;
+        let attempts = 0;
+
+        while (consecutiveErrors < 3 && attempts < MAX_ATTEMPTS) {
+            attempts++;
+            try {
+                const data = await fetchLotofacil(concursoNum);
+                if (data && data.numbers.length === 15) {
+                    newRows.push(data.numbers);
+                    consecutiveErrors = 0; // Reseta erro ao ter sucesso
+                    document.getElementById('update-status-text').textContent = `Baixado: Concurso ${data.concurso} (${newRows.length} novos)`;
+                } else {
+                    consecutiveErrors++;
+                }
+                concursoNum++;
+            } catch (err) {
+                consecutiveErrors++;
+                concursoNum++;
+            }
+        }
+
+        if (newRows.length > 0) {
+            DRAWS_DATA = [...DRAWS_DATA, ...newRows];
+            // Recalcula o último concurso com base no tamanho do array e no primeiro concurso
+            LAST_CONCURSO = FIRST_CONCURSO + DRAWS_DATA.length - 1;
+            
+            loadData();
+            loadDataInfo();
+            loadOverview();
+            document.getElementById('totalDraws').textContent = nDraws;
+            document.getElementById('lastConc').textContent = LAST_CONCURSO;
+            setStatusData('update', `${newRows.length} novos concursos baixados com sucesso! Total: ${DRAWS_DATA.length}`, 'done');
+        } else {
+            setStatusData('update', 'Nenhum concurso novo encontrado. Seus dados já estão atualizados.', 'done');
+        }
+    } catch (e) {
+        setStatusData('update', 'Erro ao atualizar: ' + e.message + '. Tente usar o Upload de Planilha.', 'error');
+    }
 }
 
+// ===== ✅ CORREÇÃO DA EXPORTAÇÃO DE PLANILHA =====
 function exportExcelData() {
-const draws = DRAWS_DATA || [];
-if (draws.length === 0) { setStatusData('update', 'Nenhum dado para exportar', 'error'); return; }
-const rows = [['Concurso', 'Bola1', 'Bola2', 'Bola3', 'Bola4', 'Bola5', 'Bola6', 'Bola7', 'Bola8', 'Bola9', 'Bola10', 'Bola11', 'Bola12', 'Bola13', 'Bola14', 'Bola15']];
-for (let i = 0; i < draws.length; i++) rows.push([FIRST_CONCURSO + i, ...draws[i]]);
-const ws = XLSX.utils.aoa_to_sheet(rows);
-const wb = XLSX.utils.book_new();
-XLSX.utils.book_append_sheet(wb, ws, 'Lotofacil');
-const lastNum = FIRST_CONCURSO + draws.length - 1;
-XLSX.writeFile(wb, 'Lotofacil_' + lastNum + '.xlsx');
-setStatusData('update', 'Planilha exportada: Lotofacil_' + lastNum + '.xlsx', 'done');
+    if (!DRAWS_DATA || DRAWS_DATA.length === 0) {
+        setStatusData('update', 'Nenhum dado disponível para exportar.', 'error');
+        return;
+    }
+    
+    const rows = [['Concurso', 'Bola1', 'Bola2', 'Bola3', 'Bola4', 'Bola5', 'Bola6', 'Bola7', 'Bola8', 'Bola9', 'Bola10', 'Bola11', 'Bola12', 'Bola13', 'Bola14', 'Bola15']];
+    
+    for (let i = 0; i < DRAWS_DATA.length; i++) {
+        // Usa FIRST_CONCURSO + i para garantir a numeração correta sequencial
+        rows.push([FIRST_CONCURSO + i, ...DRAWS_DATA[i]]);
+    }
+    
+    const ws = XLSX.utils.aoa_to_sheet(rows);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Lotofacil');
+    
+    const lastNum = FIRST_CONCURSO + DRAWS_DATA.length - 1;
+    const fileName = `Lotofacil_Atualizado_Concurso_${lastNum}.xlsx`;
+    
+    XLSX.writeFile(wb, fileName);
+    setStatusData('update', `Planilha exportada com sucesso: ${fileName} (${DRAWS_DATA.length} concursos)`, 'done');
+}
+
+// ===== TEMPLATE =====
+function templateApproach(){
+const results=[];
+for(let idx=0;idx<nDraws;idx++){
+const nums=new Set(allDraws[idx]);
+let matches=0;
+for(const t of TARGET_SET)if(nums.has(t))matches++;
+if(matches>=12){
+const draw=[...allDraws[idx]].sort((a,b)=>a-b);
+const missing=[...TARGET_SET].filter(n=>!nums.has(n)).sort((a,b)=>a-b);
+const extra=[...nums].filter(n=>!TARGET_SET.has(n)).sort((a,b)=>a-b);
+results.push({concurso:FIRST_CONCURSO+idx,matches,draw,missing,extra});
+}
+}
+results.sort((a,b)=>b.matches-a.matches);
+const template14=results.filter(r=>r.matches===14);
+const template13=results.filter(r=>r.matches===13);
+let combo14=null;
+if(template14.length>0){
+const r=template14[0];
+const combo=[...r.draw];
+for(let i=0;i<combo.length;i++){
+if(r.extra.includes(combo[i])){combo[i]=r.missing[0]||combo[i];break;}
+}
+combo14=[...new Set(combo)].sort((a,b)=>a-b);
+while(combo14.length<DRAW_SIZE)for(let n=1;n<=NUMBERS_RANGE;n++)if(!combo14.includes(n)){combo14.push(n);break;}
+combo14=combo14.slice(0,DRAW_SIZE);
+}
+const combos13=[];
+for(const r of template13.slice(0,5)){
+const combo=[...r.draw];
+let extraIdx=0;
+for(let i=0;i<combo.length;i++){
+if(r.extra.includes(combo[i])&&extraIdx<r.missing.length){combo[i]=r.missing[extraIdx];extraIdx++;}
+}
+let c=[...new Set(combo)].sort((a,b)=>a-b);
+while(c.length<DRAW_SIZE)for(let n=1;n<=NUMBERS_RANGE;n++)if(!c.includes(n)){c.push(n);break;}
+combos13.push(c.slice(0,DRAW_SIZE));
+}
+return{matches14:template14.slice(0,3),matches13:template13.slice(0,10),combo14,combos13:combos13.slice(0,5)};
 }
 
 // ===== GENÉTICO OTIMIZADO =====
@@ -646,6 +742,7 @@ return{features,labels};
 
 function neuralNetworkPredict(){
 const t0=performance.now();
+if(allDraws.length<20)return{testAccuracy:0,probs:{},top15:ALL_NUMS.slice(0,15),allSorted:ALL_NUMS.map(n=>[n,0.5]),elapsed:'0.00'};
 const{features,labels}=computeFeatures(allDraws,10);
 const yBinary=labels.map(draw=>{
 const b=new Array(NUMBERS_RANGE).fill(0);
@@ -761,8 +858,28 @@ const bdColors=ALL_NUMS.map(n=>TARGET.includes(n)?'rgba(124,58,237,1)':'rgba(100
 if(typeof Chart!=='undefined'){
 createChart('freqChart',{
 type:'bar',
-data:{labels,datasets:[{label:'Frequência',data:values,backgroundColor:bgColors,borderColor:bdColors,borderWidth:1}]},
-options:{responsive:true,maintainAspectRatio:false,plugins:{title:{display:true,text:'Frequência de Cada Número (1-25)',color:'#e0e0ff',font:{size:14}},legend:{display:false}},scales:{y:{ticks:{color:'#9898cc'},grid:{color:'rgba(100,100,200,0.1)'}},x:{ticks:{color:'#9898cc',maxRotation:45},grid:{color:'rgba(100,100,200,0.05)'}}}}
+data:{
+labels,
+datasets:[{
+label:'Frequência',
+data:values,
+backgroundColor:bgColors,
+borderColor:bdColors,
+borderWidth:1
+}]
+},
+options:{
+responsive:true,
+maintainAspectRatio:false,
+plugins:{
+title:{display:true,text:'Frequência de Cada Número (1-25)',color:'#e0e0ff',font:{size:14}},
+legend:{display:false}
+},
+scales:{
+y:{ticks:{color:'#9898cc'},grid:{color:'rgba(100,100,200,0.1)'}},
+x:{ticks:{color:'#9898cc',maxRotation:45},grid:{color:'rgba(100,100,200,0.05)'}}
+}
+}
 });
 }
 const head=document.getElementById('lastDrawsHead');
@@ -786,47 +903,6 @@ let m=0;for(const t of TARGET_SET)if(nums.has(t))m++;
 if(m>maxMatch){maxMatch=m;maxConc=i+1;}
 }
 document.getElementById('recordInfo').innerHTML=maxMatch+'/15: Concurso '+(FIRST_CONCURSO+maxConc-1);
-}
-
-function templateApproach(){
-const results=[];
-for(let idx=0;idx<nDraws;idx++){
-const nums=new Set(allDraws[idx]);
-let matches=0;
-for(const t of TARGET_SET)if(nums.has(t))matches++;
-if(matches>=12){
-const draw=[...allDraws[idx]].sort((a,b)=>a-b);
-const missing=[...TARGET_SET].filter(n=>!nums.has(n)).sort((a,b)=>a-b);
-const extra=[...nums].filter(n=>!TARGET_SET.has(n)).sort((a,b)=>a-b);
-results.push({concurso:idx+1,matches,draw,missing,extra});
-}
-}
-results.sort((a,b)=>b.matches-a.matches);
-const template14=results.filter(r=>r.matches===14);
-const template13=results.filter(r=>r.matches===13);
-let combo14=null;
-if(template14.length>0){
-const r=template14[0];
-const combo=[...r.draw];
-for(let i=0;i<combo.length;i++){
-if(r.extra.includes(combo[i])){combo[i]=r.missing[0]||combo[i];break;}
-}
-combo14=[...new Set(combo)].sort((a,b)=>a-b);
-while(combo14.length<DRAW_SIZE)for(let n=1;n<=NUMBERS_RANGE;n++)if(!combo14.includes(n)){combo14.push(n);break;}
-combo14=combo14.slice(0,DRAW_SIZE);
-}
-const combos13=[];
-for(const r of template13.slice(0,5)){
-const combo=[...r.draw];
-let extraIdx=0;
-for(let i=0;i<combo.length;i++){
-if(r.extra.includes(combo[i])&&extraIdx<r.missing.length){combo[i]=r.missing[extraIdx];extraIdx++;}
-}
-let c=[...new Set(combo)].sort((a,b)=>a-b);
-while(c.length<DRAW_SIZE)for(let n=1;n<=NUMBERS_RANGE;n++)if(!c.includes(n)){c.push(n);break;}
-combos13.push(c.slice(0,DRAW_SIZE));
-}
-return{matches14:template14.slice(0,3),matches13:template13.slice(0,10),combo14,combos13:combos13.slice(0,5)};
 }
 
 function runTemplate(){
@@ -863,7 +939,7 @@ const matches=seq.combo.filter(n=>TARGET_SET.has(n)).length;
 const missing=[...TARGET_SET].filter(n=>!seq.combo.includes(n));
 const card=document.createElement('div');card.style.cssText='margin-bottom:16px;padding:16px;background:var(--bg2);border:1px solid var(--border);border-radius:10px';
 const src=seq.source==='variation'?'<span class="badge badge-info">Variação</span>':'<span class="badge badge-success">Template</span>';
-card.innerHTML='<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px"><strong style="color:var(--accent2)">'+seq.name+'</strong>'+src+'<span class="badge '+(matches===15?'badge-success':matches>=13?'badge-warning':'badge-info')+'">'+matches+'/15 acertos</span></div><div style="font-size:.9rem;color:var(--text2);margin-bottom:8px">'+seq.combo.join(' - ')+'</div>';
+card.innerHTML='<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap"><strong style="color:var(--accent2)">'+seq.name+'</strong>'+src+'<span class="badge '+(matches===15?'badge-success':matches>=13?'badge-warning':'badge-info')+'">'+matches+'/15 acertos</span></div><div style="font-size:.9rem;color:var(--text2);margin-bottom:8px">'+seq.combo.join(' - ')+'</div>';
 const row=document.createElement('div');row.className='numbers-row';card.appendChild(row);
 renderBalls(row,seq.combo,'found');
 if(missing.length>0){const d=document.createElement('div');d.style.cssText='margin-top:8px;font-size:.85rem';d.innerHTML='<span class="badge badge-warning">Faltam:</span> <span style="color:var(--yellow)">'+missing.join(', ')+'</span>';card.appendChild(d);}
@@ -1038,16 +1114,30 @@ setStatus('ens-status','Ensemble concluído em '+elapsed+'s!','done');
 },50);
 }
 
+// ===== DADOS INICIAIS (Exemplo reduzido. Substitua pelo seu array completo de 3800+ concursos) =====
+DRAWS_DATA = [
+[2,3,5,6,9,10,11,13,14,16,18,20,23,24,25],
+[1,4,5,6,7,9,11,12,13,15,16,19,20,23,24],
+[1,4,6,7,8,9,10,11,12,14,16,17,20,23,24],
+[1,2,4,5,8,10,12,13,16,17,18,19,23,24,25],
+[1,2,4,8,9,11,12,13,15,16,19,20,23,24,25]
+];
+// ⚠️ IMPORTANTE: Para o sistema funcionar com histórico completo, substitua o array acima 
+// pelo seu array completo de concursos extraído do seu arquivo original.
+
 // ===== INIT =====
-if(typeof DRAWS_DATA!=='undefined'&&DRAWS_DATA.length>0){
+FIRST_CONCURSO = 1;
+LAST_CONCURSO = FIRST_CONCURSO + DRAWS_DATA.length - 1;
+
+if(DRAWS_DATA.length>0){
 loadData();
 renderTargetNums();
 loadOverview();
 document.getElementById('totalDraws').textContent=nDraws;
-document.getElementById('lastConc').textContent=FIRST_CONCURSO+nDraws-1;
+document.getElementById('lastConc').textContent=LAST_CONCURSO;
 loadDataInfo();
 }else{
-document.body.innerHTML='<div style="padding:40px;text-align:center;color:#ef4444;font-size:1.2rem">Erro: Dados não encontrados.</div>';
+document.body.innerHTML='<div style="padding:40px;text-align:center;color:#ef4444;font-size:1.2rem">Erro: Dados não encontrados. Certifique-se de que a variável DRAWS_DATA está definida.</div>';
 }
 </script>
 </body>
