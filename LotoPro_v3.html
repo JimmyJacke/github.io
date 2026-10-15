@@ -71,6 +71,72 @@
   .row { display: flex; gap: 10px; }
   .row > * { flex: 1; }
 
+  .abas-origem {
+    display: flex;
+    gap: 4px;
+    margin-bottom: 12px;
+    border-bottom: 2px solid #e1e5eb;
+  }
+  .aba-btn {
+    padding: 8px 14px;
+    background: transparent;
+    border: none;
+    border-bottom: 3px solid transparent;
+    cursor: pointer;
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: #666;
+    margin-bottom: -2px;
+    transition: all 0.2s;
+  }
+  .aba-btn.ativa {
+    color: #2a5298;
+    border-bottom-color: #2a5298;
+  }
+  .aba-btn:hover:not(.ativa) { color: #2a5298; }
+  .aba-conteudo { display: none; }
+  .aba-conteudo.ativo { display: block; }
+
+  .busca-internet {
+    background: #f0f7ff;
+    border: 1px dashed #2a5298;
+    border-radius: 8px;
+    padding: 12px;
+    margin-bottom: 10px;
+  }
+  .busca-internet .row { align-items: flex-end; }
+  .btn-buscar {
+    background: #2a5298;
+    color: #fff;
+    padding: 8px 14px;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    font-weight: 600;
+    white-space: nowrap;
+    transition: transform 0.1s, box-shadow 0.2s;
+  }
+  .btn-buscar:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(42,82,152,0.3); }
+  .btn-buscar:disabled { opacity: 0.6; cursor: wait; }
+  .info-concurso {
+    background: #e8f5e9;
+    border-left: 4px solid #28a745;
+    padding: 10px;
+    border-radius: 6px;
+    margin-top: 10px;
+    font-size: 0.85rem;
+    display: none;
+    line-height: 1.5;
+  }
+  .info-concurso.ativo { display: block; }
+  .info-concurso.erro {
+    background: #ffebee;
+    border-left-color: #dc3545;
+  }
+  .info-concurso strong { color: #203a43; }
+  .info-concurso a { color: #2a5298; font-weight: 600; }
+
   .botoes {
     padding: 16px 32px;
     display: flex;
@@ -311,15 +377,45 @@
   <div class="container">
     <header>
       <h1>🎯 Busca de 14 Acertos + Análise Correlacionada</h1>
-      <p>Sorteia sequências até encontrar 5 ocorrências com 14 acertos, analisa os períodos e gera sequências correlacionadas com gráfico de correlação.</p>
+      <p>Sorteia sequências até encontrar 5 ocorrências com 14 acertos, analisa os períodos e gera sequências correlacionadas com gráfico.</p>
     </header>
 
     <div class="painel">
       <div class="card">
         <h3>Sequência-alvo (15 números)</h3>
-        <label for="alvo">Digite 15 números separados por espaço, vírgula ou quebra de linha:</label>
-        <textarea id="alvo" placeholder="Ex: 1 3 5 7 9 10 11 13 14 16 18 20 22 23 25"></textarea>
-        <div class="row">
+        
+        <div class="abas-origem">
+          <button class="aba-btn ativa" data-aba="manual">✍️ Digitar manualmente</button>
+          <button class="aba-btn" data-aba="internet">🌐 Buscar da internet</button>
+        </div>
+
+        <div class="aba-conteudo ativo" id="aba-manual">
+          <label for="alvo">Digite 15 números separados por espaço, vírgula ou quebra de linha:</label>
+          <textarea id="alvo" placeholder="Ex: 1 3 5 7 9 10 11 13 14 16 18 20 22 23 25"></textarea>
+        </div>
+
+        <div class="aba-conteudo" id="aba-internet">
+          <div class="busca-internet">
+            <label>Selecione a loteria e busque o último concurso:</label>
+            <div class="row">
+              <div>
+                <select id="tipoLoteria">
+                  <option value="lotofacil">Lotofácil (15 de 25)</option>
+                  <option value="lotofacil_1_14">Lotofácil (1 a 14 números)</option>
+                </select>
+              </div>
+              <div style="flex:0 0 auto;">
+                <button class="btn-buscar" id="btnBuscar">🔍 Buscar último</button>
+              </div>
+            </div>
+            <div class="info-concurso" id="infoConcurso"></div>
+          </div>
+          <label for="alvoInternet">Sequência obtida (editável antes de iniciar):</label>
+          <textarea id="alvoInternet" placeholder="Os números aparecerão aqui após a busca. Você pode editar antes de iniciar."></textarea>
+          <button class="btn-buscar" id="btnUsarInternet" style="background:#28a745; margin-top:4px;">✅ Usar esta sequência</button>
+        </div>
+
+        <div class="row" style="margin-top:12px;">
           <div>
             <label for="universo">Universo (1 a N)</label>
             <input type="number" id="universo" value="25" min="15" max="100">
@@ -436,8 +532,10 @@
   const $ = id => document.getElementById(id);
   const btnIniciar = $('btnIniciar'), btnParar = $('btnParar'), btnLimpar = $('btnLimpar');
   const btnCorrelacionar = $('btnCorrelacionar'), btnDownload = $('btnDownload');
+  const btnBuscar = $('btnBuscar'), btnUsarInternet = $('btnUsarInternet');
   const statusEl = $('status'), barra = $('barra'), resultadosEl = $('resultados');
   const correlacaoSection = $('correlacaoSection');
+  const infoConcurso = $('infoConcurso');
 
   let rodando = false, pararSolicitado = false;
   let inicioTempo = 0;
@@ -445,6 +543,16 @@
   let sequenciasCorrelacionadas = [];
   let statsCalculadas = null;
   let paramsAtuais = null;
+  let dadosConcurso = null;
+
+  document.querySelectorAll('.aba-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.aba-btn').forEach(b => b.classList.remove('ativa'));
+      document.querySelectorAll('.aba-conteudo').forEach(c => c.classList.remove('ativo'));
+      btn.classList.add('ativa');
+      $('aba-' + btn.dataset.aba).classList.add('ativo');
+    });
+  });
 
   function setStatus(msg, tipo = '') {
     statusEl.textContent = msg;
@@ -457,21 +565,123 @@
   }
 
   function validarEntrada() {
-    const alvo = parseAlvo($('alvo').value);
+    const abaAtiva = document.querySelector('.aba-btn.ativa').dataset.aba;
+    const texto = abaAtiva === 'internet' ? $('alvoInternet').value : $('alvo').value;
+    const alvo = parseAlvo(texto);
     const universo = parseInt($('universo').value);
     const qtd = parseInt($('qtd').value);
     const acertosMin = parseInt($('acertosMin').value);
     const meta = parseInt($('meta').value);
     const limite = parseInt($('limite').value);
 
-    if (alvo.length !== qtd) return { ok:false, msg:`A sequência-alvo deve ter exatamente ${qtd} números (informados: ${alvo.length}).` };
-    if (new Set(alvo).size !== alvo.length) return { ok:false, msg:'Há números repetidos na sequência-alvo.' };
+    if (alvo.length === 0) return { ok:false, msg:'Nenhuma sequência informada. Digite ou busque da internet.' };
+    if (alvo.length !== qtd) return { ok:false, msg:`A sequência deve ter exatamente ${qtd} números (informados: ${alvo.length}).` };
+    if (new Set(alvo).size !== alvo.length) return { ok:false, msg:'Há números repetidos na sequência.' };
     if (alvo.some(n => n < 1 || n > universo)) return { ok:false, msg:`Números fora do universo 1..${universo}.` };
     if (acertosMin > qtd) return { ok:false, msg:'Acertos desejados não pode exceder a quantidade por sorteio.' };
     if (meta < 1) return { ok:false, msg:'Meta deve ser pelo menos 1.' };
     if (limite < 100) return { ok:false, msg:'Limite muito baixo.' };
-    return { ok:true, alvo, universo, qtd, acertosMin, meta, limite };
+    return { ok:true, alvo, universo, qtd, acertosMin, meta, limite, origem: abaAtiva };
   }
+
+  async function buscarUltimoConcurso() {
+    btnBuscar.disabled = true;
+    btnBuscar.textContent = '⏳ Buscando...';
+    infoConcurso.classList.remove('ativo', 'erro');
+    infoConcurso.classList.add('ativo');
+    infoConcurso.innerHTML = '⏳ Tentando conectar às APIs de loteria...';
+
+    // Múltiplas APIs em fallback (se uma falhar, tenta a próxima)
+    const apis = [
+      'https://loteriascaixa-api.onrender.com/api/lotofacil/latest',
+      'https://loterias-api.vercel.app/api/lotofacil',
+      'https://loteriascaixa-api.herokuapp.com/api/lotofacil/latest'
+    ];
+
+    let data = null;
+
+    for (const url of apis) {
+      try {
+        // Tenta direto primeiro
+        const resp = await fetch(url, { method: 'GET' });
+        if (resp.ok) {
+          data = await resp.json();
+          break;
+        }
+      } catch (e) {
+        // Tenta com proxy CORS se falhar direto
+        try {
+          const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`;
+          const respProxy = await fetch(proxyUrl);
+          if (respProxy.ok) {
+            data = await respProxy.json();
+            break;
+          }
+        } catch (e2) {
+          continue;
+        }
+      }
+    }
+
+    if (data && (data.dezenas || data.listaDezenas || data.numeros)) {
+      const concurso = data.concurso || data.numeroConcurso || '?';
+      const dataStr = data.data || data.dataApuracao || data.dataSorteio || '?';
+      let dezenas = data.dezenas || data.listaDezenas || data.numeros || [];
+      
+      // Limpeza: garante que sejam números inteiros
+      dezenas = dezenas.map(d => parseInt(String(d).replace(/\D/g, ''), 10)).filter(n => !isNaN(n));
+      
+      const qtdDesejada = parseInt($('qtd').value);
+      if (dezenas.length > qtdDesejada) {
+        dezenas = dezenas.slice(0, qtdDesejada);
+      }
+
+      $('alvoInternet').value = dezenas.join(' ');
+      $('universo').value = 25;
+
+      dadosConcurso = { concurso, data: dataStr, dezenas: [...dezenas], tipo: 'lotofacil' };
+      
+      infoConcurso.classList.remove('erro');
+      infoConcurso.innerHTML = `
+        <strong>✅ Concurso ${concurso}</strong> — ${dataStr}<br>
+        Dezenas: <strong>${dezenas.join(' - ')}</strong><br>
+        <em style="font-size:0.8rem;">Você pode editar acima antes de usar. Clique em "✅ Usar esta sequência".</em>
+      `;
+      setStatus(`✅ Concurso ${concurso} carregado. Revise e clique em "Usar esta sequência".`, 'ok');
+    } else {
+      infoConcurso.classList.add('erro');
+      infoConcurso.innerHTML = `
+        <strong>❌ Não foi possível buscar automaticamente.</strong><br>
+        Motivo: Bloqueio de segurança do navegador (CORS) em arquivos locais ou APIs temporariamente indisponíveis.<br><br>
+        <strong>💡 Solução rápida (10 segundos):</strong><br>
+        1. Acesse o <a href="https://loterias.caixa.gov.br/Paginas/Lotofacil.aspx" target="_blank">site oficial da Lotofácil</a>.<br>
+        2. Copie os 15 números do último concurso.<br>
+        3. Cole-os no campo acima e clique em "✅ Usar esta sequência".
+      `;
+      setStatus('⚠ Busca automática bloqueada. Use a opção de colar os números do site oficial.', 'erro');
+    }
+
+    btnBuscar.disabled = false;
+    btnBuscar.textContent = '🔍 Buscar último';
+  }
+
+  function usarSequenciaInternet() {
+    const texto = $('alvoInternet').value.trim();
+    if (!texto) {
+      setStatus('❌ Nenhuma sequência para usar. Busque primeiro ou digite.', 'erro');
+      return;
+    }
+    const nums = parseAlvo(texto);
+    if (nums.length === 0) {
+      setStatus('❌ Sequência inválida.', 'erro');
+      return;
+    }
+    $('alvo').value = nums.join(' ');
+    setStatus(`✅ Sequência com ${nums.length} números pronta para uso. Clique em "Iniciar busca".`, 'ok');
+  }
+
+  btnBuscar.addEventListener('click', buscarUltimoConcurso);
+  btnUsarInternet.addEventListener('click', usarSequenciaInternet);
 
   function sortear(universo, qtd) {
     const arr = new Array(universo);
@@ -489,9 +699,7 @@
     return c;
   }
 
-  // Renderiza bolas ordenadas em ordem crescente, marcando acertos/erros ou originais/alteradas
   function renderBolas(seq, alvoSet, modo) {
-    // modo: 'acertos' (verde/vermelho) ou 'correlacao' (verde/laranja)
     const items = seq.map(n => {
       let classe;
       if (modo === 'acertos') {
@@ -601,7 +809,6 @@
   function renderSequenciaCorrelacionada(idx, seq, alteracoes, baseIdx, alvoSet) {
     const card = document.createElement('div');
     card.className = 'seq-card';
-    // Monta array de {numero, alterado} e ordena por número
     const items = seq.map((n, i) => ({ n, alterado: alteracoes.has(i) }));
     items.sort((a, b) => a.n - b.n);
     const bolas = items.map(it => {
@@ -619,7 +826,6 @@
     return card;
   }
 
-  // Desenha o gráfico de barras de frequência dos números nas sequências correlacionadas
   function desenharGrafico() {
     if (sequenciasCorrelacionadas.length === 0 || !paramsAtuais) return;
     
@@ -628,7 +834,6 @@
     const universo = paramsAtuais.universo;
     const alvoSet = new Set(paramsAtuais.alvo);
     
-    // Conta frequência de cada número
     const frequencia = new Array(universo + 1).fill(0);
     sequenciasCorrelacionadas.forEach(s => {
       s.sequencia.forEach(n => frequencia[n]++);
@@ -636,7 +841,6 @@
     
     const maxFreq = Math.max(...frequencia.slice(1));
     
-    // Dimensões
     const W = canvas.width;
     const H = canvas.height;
     const margemEsq = 50, margemDir = 20, margemTop = 20, margemBot = 50;
@@ -644,12 +848,9 @@
     const areaH = H - margemTop - margemBot;
     
     ctx.clearRect(0, 0, W, H);
-    
-    // Fundo
     ctx.fillStyle = '#fafbfc';
     ctx.fillRect(0, 0, W, H);
     
-    // Linhas de grade horizontais
     ctx.strokeStyle = '#e1e5eb';
     ctx.lineWidth = 1;
     const numLinhas = 5;
@@ -660,7 +861,6 @@
       ctx.lineTo(W - margemDir, y);
       ctx.stroke();
       
-      // Rótulo do eixo Y
       const valor = Math.round(maxFreq * (1 - i / numLinhas));
       ctx.fillStyle = '#666';
       ctx.font = '11px sans-serif';
@@ -668,7 +868,6 @@
       ctx.fillText(valor, margemEsq - 6, y + 4);
     }
     
-    // Barras
     const larguraBarra = areaW / universo;
     const espacamento = Math.max(1, larguraBarra * 0.15);
     
@@ -681,17 +880,14 @@
       const y = margemTop + areaH - altura;
       const w = larguraBarra - espacamento;
       
-      // Cor: verde se está no alvo, azul se não
       const cor = alvoSet.has(i) ? '#28a745' : '#17a2b8';
       ctx.fillStyle = cor;
       ctx.fillRect(x, y, w, altura);
       
-      // Borda sutil
       ctx.strokeStyle = 'rgba(0,0,0,0.1)';
       ctx.lineWidth = 1;
       ctx.strokeRect(x, y, w, altura);
       
-      // Valor no topo da barra (se > 0)
       if (freq > 0) {
         ctx.fillStyle = '#333';
         ctx.font = 'bold 10px sans-serif';
@@ -699,14 +895,12 @@
         ctx.fillText(freq, x + w / 2, y - 3);
       }
       
-      // Rótulo do número no eixo X
       ctx.fillStyle = '#333';
       ctx.font = '10px sans-serif';
       ctx.textAlign = 'center';
       ctx.fillText(i, x + w / 2, margemTop + areaH + 14);
     }
     
-    // Eixos
     ctx.strokeStyle = '#333';
     ctx.lineWidth = 1.5;
     ctx.beginPath();
@@ -715,7 +909,6 @@
     ctx.lineTo(W - margemDir, margemTop + areaH);
     ctx.stroke();
     
-    // Títulos dos eixos
     ctx.fillStyle = '#333';
     ctx.font = 'bold 12px sans-serif';
     ctx.textAlign = 'center';
@@ -734,10 +927,10 @@
     const v = validarEntrada();
     if (!v.ok) { setStatus('❌ ' + v.msg, 'erro'); return; }
 
-    const { alvo, universo, qtd, acertosMin, meta, limite } = v;
+    const { alvo, universo, qtd, acertosMin, meta, limite, origem } = v;
     const alvoSet = new Set(alvo);
     const criterio = $('criterio').value;
-    paramsAtuais = { alvo, universo, qtd, acertosMin, meta, limite, criterio };
+    paramsAtuais = { alvo, universo, qtd, acertosMin, meta, limite, criterio, origem, dadosConcurso };
 
     rodando = true; pararSolicitado = false;
     btnIniciar.disabled = true; btnParar.disabled = false; btnDownload.disabled = true;
@@ -752,7 +945,10 @@
     let tentativa = 0, encontrados = 0;
     const CHUNK = 30000;
 
-    setStatus(`🔄 Buscando ${meta} sequência(s) com ${acertosMin}+ acertos (universo 1..${universo})…`);
+    const origemTxt = origem === 'internet' && dadosConcurso 
+      ? `(base: Concurso ${dadosConcurso.concurso})` 
+      : '(base: digitação manual)';
+    setStatus(`🔄 Buscando ${meta} sequência(s) com ${acertosMin}+ acertos ${origemTxt}…`);
 
     while (encontrados < meta && tentativa < limite && !pararSolicitado) {
       const fimChunk = Math.min(tentativa + CHUNK, limite);
@@ -831,7 +1027,7 @@
 
   function gerarTXT() {
     if (!paramsAtuais) return;
-    const { alvo, universo, qtd, acertosMin, meta, limite, criterio } = paramsAtuais;
+    const { alvo, universo, qtd, acertosMin, meta, limite, criterio, origem, dadosConcurso } = paramsAtuais;
     const alvoOrdenado = [...alvo].sort((a, b) => a - b);
     const linhas = [];
     
@@ -840,6 +1036,11 @@
     linhas.push('='.repeat(70));
     linhas.push('');
     linhas.push(`Data/Hora: ${new Date().toLocaleString('pt-BR')}`);
+    linhas.push(`Origem da sequência-alvo: ${origem === 'internet' ? 'Internet (API Loterias Caixa)' : 'Digitação manual'}`);
+    if (dadosConcurso) {
+      linhas.push(`Concurso de referência: ${dadosConcurso.concurso} — ${dadosConcurso.data}`);
+      linhas.push(`Dezenas do concurso: ${(dadosConcurso.dezenas || []).join(' - ')}`);
+    }
     linhas.push('');
     
     linhas.push('-'.repeat(70));
@@ -898,7 +1099,6 @@
         linhas.push('');
       });
       
-      // Tabela de frequência
       const freq = new Array(universo + 1).fill(0);
       sequenciasCorrelacionadas.forEach(s => s.sequencia.forEach(n => freq[n]++));
       linhas.push('-'.repeat(70));
